@@ -54,7 +54,14 @@ pub fn process_one(source: &Path, out_dir: &Path, settings: &Settings) -> IbpRes
     let source_format = ImageFormat::from_extension(source);
     let out_format = encode::resolve_output_format(source_format, settings.output_format);
     let out_path = plan_output_path(source, out_dir, out_format.extension());
-    encode::write_to_path(&image, &out_path, out_format, settings)?;
+    match settings.compression {
+        crate::settings::CompressionMode::TargetFileSize { kilobytes } => {
+            encode::write_to_path_target_size(&image, &out_path, out_format, kilobytes)?;
+        }
+        crate::settings::CompressionMode::Manual => {
+            encode::write_to_path(&image, &out_path, out_format, settings)?;
+        }
+    }
     Ok(out_path)
 }
 

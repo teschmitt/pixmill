@@ -27,6 +27,10 @@ export type ResizeMode =
   | { kind: "maxLongEdge"; pixels: number }
   | { kind: "percentage"; percent: number };
 
+export type CompressionMode =
+  | { kind: "manual" }
+  | { kind: "targetFileSize"; kilobytes: number };
+
 export type CropMode =
   | { kind: "none" }
   | { kind: "aspectRatio"; width: number; height: number }
@@ -41,6 +45,7 @@ export interface Settings {
   crop: CropMode;
   rotate: RotateMode;
   outputFormat: OutputFormatChoice;
+  compression: CompressionMode;
   jpegQuality: number | null;
   webpQuality: number | null;
   preserveExif: boolean;
@@ -51,6 +56,7 @@ export const defaultSettings: Settings = {
   crop: { kind: "none" },
   rotate: "none",
   outputFormat: "keep",
+  compression: { kind: "manual" },
   jpegQuality: 85,
   webpQuality: 85,
   preserveExif: true,

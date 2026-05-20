@@ -1,6 +1,12 @@
 <script lang="ts">
   import { settings } from "$lib/stores/settings.svelte";
-  import type { CropMode, OutputFormatChoice, ResizeMode, RotateMode } from "$lib/types";
+  import type {
+    CompressionMode,
+    CropMode,
+    OutputFormatChoice,
+    ResizeMode,
+    RotateMode,
+  } from "$lib/types";
 
   let s = $derived(settings.current);
 
@@ -16,6 +22,11 @@
     s.crop.kind === "aspectRatio" || s.crop.kind === "pixels" ? s.crop.height : 1
   );
 
+  let compressionKind = $derived(s.compression.kind);
+  let compressionKilobytes = $derived(
+    s.compression.kind === "targetFileSize" ? s.compression.kilobytes : 500
+  );
+
   function setResize(mode: ResizeMode) {
     settings.current.resize = mode;
   }
@@ -27,6 +38,9 @@
   }
   function setFormat(fmt: OutputFormatChoice) {
     settings.current.outputFormat = fmt;
+  }
+  function setCompression(mode: CompressionMode) {
+    settings.current.compression = mode;
   }
 
   const rotateOptions: { value: RotateMode; label: string }[] = [
@@ -197,31 +211,69 @@
     </select>
   </label>
 
-  {#if s.outputFormat === "jpeg" || s.outputFormat === "keep"}
-    <label class="line">
-      JPEG quality
-      <input
-        type="range"
-        min="1"
-        max="100"
-        value={s.jpegQuality ?? 85}
-        oninput={(e) => (settings.current.jpegQuality = Number(e.currentTarget.value))}
-      />
-      <span class="qty">{s.jpegQuality ?? 85}</span>
-    </label>
+  <h2>Compression</h2>
+  <label class="radio">
+    <input
+      type="radio"
+      name="compression"
+      checked={compressionKind === "manual"}
+      onchange={() => setCompression({ kind: "manual" })}
+    />
+    Manual quality
+  </label>
+  {#if compressionKind === "manual"}
+    {#if s.outputFormat === "jpeg" || s.outputFormat === "keep"}
+      <label class="line indented">
+        JPEG quality
+        <input
+          type="range"
+          min="1"
+          max="100"
+          value={s.jpegQuality ?? 85}
+          oninput={(e) => (settings.current.jpegQuality = Number(e.currentTarget.value))}
+        />
+        <span class="qty">{s.jpegQuality ?? 85}</span>
+      </label>
+    {/if}
+    {#if s.outputFormat === "webp" || s.outputFormat === "keep"}
+      <label class="line indented">
+        WebP quality
+        <input
+          type="range"
+          min="1"
+          max="100"
+          value={s.webpQuality ?? 85}
+          oninput={(e) => (settings.current.webpQuality = Number(e.currentTarget.value))}
+        />
+        <span class="qty">{s.webpQuality ?? 85}</span>
+      </label>
+    {/if}
   {/if}
-  {#if s.outputFormat === "webp" || s.outputFormat === "keep"}
-    <label class="line">
-      WebP quality
-      <input
-        type="range"
-        min="1"
-        max="100"
-        value={s.webpQuality ?? 85}
-        oninput={(e) => (settings.current.webpQuality = Number(e.currentTarget.value))}
-      />
-      <span class="qty">{s.webpQuality ?? 85}</span>
-    </label>
+  <label class="radio">
+    <input
+      type="radio"
+      name="compression"
+      checked={compressionKind === "targetFileSize"}
+      onchange={() =>
+        setCompression({ kind: "targetFileSize", kilobytes: compressionKilobytes })}
+    />
+    Target file size ≤
+    <input
+      type="number"
+      min="1"
+      max="100000"
+      value={compressionKilobytes}
+      disabled={compressionKind !== "targetFileSize"}
+      oninput={(e) =>
+        setCompression({
+          kind: "targetFileSize",
+          kilobytes: Math.max(1, Number(e.currentTarget.value) || 1),
+        })}
+    />
+    KB
+  </label>
+  {#if compressionKind === "targetFileSize" && s.outputFormat === "png"}
+    <p class="hint">Requires JPEG or WebP output</p>
   {/if}
 
   <label class="line">
@@ -306,5 +358,13 @@
     text-align: right;
     color: var(--muted);
     font-size: 12px;
+  }
+  .hint {
+    margin: 2px 0 0 24px;
+    font-size: 12px;
+    color: var(--warning, #d97757);
+  }
+  .line.indented {
+    margin-left: 24px;
   }
 </style>

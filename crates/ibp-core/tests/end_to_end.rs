@@ -236,3 +236,116 @@ fn webp_lossy_preserves_alpha_channel() {
     let decoded = image::open(dest).unwrap();
     assert!(decoded.color().has_alpha(), "alpha lost on roundtrip");
 }
+
+#[test]
+fn target_size_jpeg_hits_budget() {
+    use settings::{CompressionMode, OutputFormat};
+
+    let src_dir = tempdir("tsize-jpeg-src");
+    let out_dir = tempdir("tsize-jpeg-out");
+    let src = write_noisy_png(&src_dir, "noise.png", 512, 512);
+
+    let mut s = Settings::default();
+    s.compression = CompressionMode::TargetFileSize { kilobytes: 80 };
+    s.output_format = OutputFormat::Jpeg;
+
+    let results = pipeline::run_batch(&[src], &out_dir, &s, |_| {});
+    assert_eq!(results.len(), 1);
+    let dest = results[0]
+        .destination
+        .as_ref()
+        .expect("destination written");
+    let size = std::fs::metadata(dest).unwrap().len() as usize;
+    assert!(
+        size <= 80 * 1024,
+        "expected JPEG output <= 80 KB, got {size} bytes"
+    );
+    image::open(dest).expect("output decodes");
+}
+
+#[test]
+fn target_size_webp_hits_budget() {
+    use settings::{CompressionMode, OutputFormat};
+
+    let src_dir = tempdir("tsize-webp-src");
+    let out_dir = tempdir("tsize-webp-out");
+    let src = write_noisy_png(&src_dir, "noise.png", 512, 512);
+
+    let mut s = Settings::default();
+    s.compression = CompressionMode::TargetFileSize { kilobytes: 40 };
+    s.output_format = OutputFormat::Webp;
+
+    let results = pipeline::run_batch(&[src], &out_dir, &s, |_| {});
+    let dest = results[0]
+        .destination
+        .as_ref()
+        .expect("destination written");
+    let size = std::fs::metadata(dest).unwrap().len() as usize;
+    assert!(
+        size <= 40 * 1024,
+        "expected WebP output <= 40 KB, got {size} bytes"
+    );
+    image::open(dest).expect("output decodes");
+}
+
+#[test]
+fn target_size_unreachable_falls_back_to_q1() {
+    use settings::{CompressionMode, OutputFormat};
+
+    let src_dir = tempdir("tsize-fallback-src");
+    let out_dir = tempdir("tsize-fallback-out");
+    let src = write_noisy_png(&src_dir, "noise.png", 1024, 1024);
+
+    let mut s = Settings::default();
+    s.compression = CompressionMode::TargetFileSize { kilobytes: 1 };
+    s.output_format = OutputFormat::Jpeg;
+
+    let results = pipeline::run_batch(&[src], &out_dir, &s, |_| {});
+    let result = &results[0];
+    assert!(
+        result.error.is_none(),
+        "expected fallback success, got error: {:?}",
+        result.error
+    );
+    let dest = result.destination.as_ref().expect("destination written");
+    assert!(dest.exists());
+    image::open(dest).expect("q=1 output decodes");
+}
+
+#[test]
+fn target_size_rejects_png_output() {
+    use settings::{CompressionMode, OutputFormat};
+
+    let mut s = Settings::default();
+    s.compression = CompressionMode::TargetFileSize { kilobytes: 100 };
+    s.output_format = OutputFormat::Png;
+
+    let err = s.validate().expect_err("PNG + target size must be rejected");
+    let msg = format!("{err}");
+    assert!(
+        msg.contains("JPEG or WebP"),
+        "unexpected error message: {msg}"
+    );
+}
+
+#[test]
+fn target_size_per_file_error_on_keep_png_source() {
+    use settings::CompressionMode;
+
+    let src_dir = tempdir("tsize-keep-png-src");
+    let out_dir = tempdir("tsize-keep-png-out");
+    let src = write_red_png(&src_dir, "a.png", 100, 100);
+
+    let mut s = Settings::default();
+    s.compression = CompressionMode::TargetFileSize { kilobytes: 50 };
+    // OutputFormat::Keep + PNG source -> resolves to PNG -> per-file error.
+
+    let results = pipeline::run_batch(&[src], &out_dir, &s, |_| {});
+    let result = &results[0];
+    assert!(result.destination.is_none(), "no destination expected");
+    let err = result.error.as_ref().expect("per-file error expected");
+    assert!(
+        err.contains("JPEG or WebP"),
+        "unexpected error message: {err}"
+    );
+}

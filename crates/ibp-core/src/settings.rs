@@ -15,6 +15,16 @@ pub enum ResizeMode {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", tag = "kind")]
+pub enum CompressionMode {
+    #[default]
+    Manual,
+    TargetFileSize {
+        kilobytes: u32,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", tag = "kind")]
 pub enum CropMode {
     #[default]
     None,
@@ -57,6 +67,8 @@ pub struct Settings {
     pub crop: CropMode,
     pub rotate: RotateMode,
     pub output_format: OutputFormat,
+    #[serde(default)]
+    pub compression: CompressionMode,
     pub jpeg_quality: Option<u8>,
     pub webp_quality: Option<u8>,
     pub preserve_exif: bool,
@@ -75,6 +87,18 @@ impl Settings {
             if percent == 0 || percent > 1000 {
                 return Err(crate::IbpError::InvalidSettings(
                     "resize percentage must be between 1 and 1000".into(),
+                ));
+            }
+        }
+        if let CompressionMode::TargetFileSize { kilobytes } = self.compression {
+            if kilobytes == 0 {
+                return Err(crate::IbpError::InvalidSettings(
+                    "target file size must be > 0 KB".into(),
+                ));
+            }
+            if matches!(self.output_format, OutputFormat::Png) {
+                return Err(crate::IbpError::InvalidSettings(
+                    "target file size requires JPEG or WebP output".into(),
                 ));
             }
         }

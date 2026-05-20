@@ -54,6 +54,153 @@ pub fn write_to_path(
     }
 }
 
+/// Encode an image to JPEG/WebP bytes targeting a kilobyte budget. Binary-searches
+/// encoder quality (max 6 iterations, early-stop in [target*0.9, target]). If even
+/// quality 1 exceeds the target, writes the quality-1 result anyway — the budget
+/// is treated as soft.
+pub fn write_to_path_target_size(
+    image: &DynamicImage,
+    path: &Path,
+    format: ImageFormat,
+    kilobytes: u32,
+) -> IbpResult<()> {
+    let target_bytes = (kilobytes as usize).saturating_mul(1024);
+    let bytes = match format {
+        ImageFormat::Jpeg => search_jpeg_for_target(image, target_bytes, path)?,
+        ImageFormat::Webp => search_webp_for_target(image, target_bytes),
+        _ => {
+            return Err(IbpError::InvalidSettings(format!(
+                "target file size requires JPEG or WebP output (got {format:?})"
+            )));
+        }
+    };
+    let file = File::create(path).map_err(|e| IbpError::Io {
+        path: path.to_path_buf(),
+        source: e,
+    })?;
+    let mut writer = BufWriter::new(file);
+    std::io::Write::write_all(&mut writer, &bytes).map_err(|e| IbpError::Io {
+        path: path.to_path_buf(),
+        source: e,
+    })
+}
+
+const TARGET_SIZE_MAX_ITERS: u32 = 6;
+
+fn search_jpeg_for_target(
+    image: &DynamicImage,
+    target: usize,
+    path: &Path,
+) -> IbpResult<Vec<u8>> {
+    let rgb = image.to_rgb8();
+    let encode = |q: u8| -> IbpResult<Vec<u8>> {
+        let mut buf = Vec::with_capacity(64 * 1024);
+        let encoder = JpegEncoder::new_with_quality(&mut buf, q);
+        rgb.write_with_encoder(encoder)
+            .map_err(|e| IbpError::Encode {
+                path: path.to_path_buf(),
+                source: e,
+            })?;
+        Ok(buf)
+    };
+
+    let mut lo: u8 = 1;
+    let mut hi: u8 = 100;
+    let tolerance_low = (target as f64 * 0.9) as usize;
+    let mut best_under: Option<Vec<u8>> = None;
+    let mut q1_bytes: Option<Vec<u8>> = None;
+
+    for _ in 0..TARGET_SIZE_MAX_ITERS {
+        if lo > hi {
+            break;
+        }
+        let q = lo + (hi - lo) / 2;
+        let bytes = encode(q)?;
+        let size = bytes.len();
+        if q == 1 {
+            q1_bytes = Some(bytes.clone());
+        }
+        if size <= target {
+            let in_band = size >= tolerance_low;
+            best_under = Some(bytes);
+            if in_band || q == 100 {
+                break;
+            }
+            lo = q + 1;
+        } else {
+            if q == 1 {
+                break;
+            }
+            hi = q - 1;
+        }
+    }
+
+    if let Some(b) = best_under {
+        return Ok(b);
+    }
+    if let Some(b) = q1_bytes {
+        return Ok(b);
+    }
+    encode(1)
+}
+
+fn search_webp_for_target(image: &DynamicImage, target: usize) -> Vec<u8> {
+    let has_alpha = image.color().has_alpha();
+    let rgba = if has_alpha {
+        Some(image.to_rgba8())
+    } else {
+        None
+    };
+    let rgb = if has_alpha {
+        None
+    } else {
+        Some(image.to_rgb8())
+    };
+    let encode = |q: u8| -> Vec<u8> {
+        let quality = q as f32;
+        let encoded = if let Some(ref rgba) = rgba {
+            webp::Encoder::from_rgba(rgba.as_raw(), rgba.width(), rgba.height()).encode(quality)
+        } else {
+            let rgb = rgb.as_ref().expect("rgb buffer present when no alpha");
+            webp::Encoder::from_rgb(rgb.as_raw(), rgb.width(), rgb.height()).encode(quality)
+        };
+        encoded.to_vec()
+    };
+
+    let mut lo: u8 = 1;
+    let mut hi: u8 = 100;
+    let tolerance_low = (target as f64 * 0.9) as usize;
+    let mut best_under: Option<Vec<u8>> = None;
+    let mut q1_bytes: Option<Vec<u8>> = None;
+
+    for _ in 0..TARGET_SIZE_MAX_ITERS {
+        if lo > hi {
+            break;
+        }
+        let q = lo + (hi - lo) / 2;
+        let bytes = encode(q);
+        let size = bytes.len();
+        if q == 1 {
+            q1_bytes = Some(bytes.clone());
+        }
+        if size <= target {
+            let in_band = size >= tolerance_low;
+            best_under = Some(bytes);
+            if in_band || q == 100 {
+                break;
+            }
+            lo = q + 1;
+        } else {
+            if q == 1 {
+                break;
+            }
+            hi = q - 1;
+        }
+    }
+
+    best_under.or(q1_bytes).unwrap_or_else(|| encode(1))
+}
+
 fn write_jpeg(
     image: &DynamicImage,
     writer: BufWriter<File>,
