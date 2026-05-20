@@ -32,13 +32,7 @@ export type CropMode =
   | { kind: "aspectRatio"; width: number; height: number }
   | { kind: "pixels"; width: number; height: number };
 
-export type RotateMode =
-  | "none"
-  | "cw90"
-  | "cw180"
-  | "cw270"
-  | "flipH"
-  | "flipV";
+export type RotateMode = "none" | "cw90" | "cw180" | "cw270" | "flipH" | "flipV";
 
 export type OutputFormatChoice = "keep" | "jpeg" | "png" | "webp";
 

@@ -1,31 +1,31 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum ResizeMode {
+    #[default]
     None,
-    MaxLongEdge { pixels: u32 },
-    Percentage { percent: u32 },
+    MaxLongEdge {
+        pixels: u32,
+    },
+    Percentage {
+        percent: u32,
+    },
 }
 
-impl Default for ResizeMode {
-    fn default() -> Self {
-        ResizeMode::None
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum CropMode {
+    #[default]
     None,
-    AspectRatio { width: u32, height: u32 },
-    Pixels { width: u32, height: u32 },
-}
-
-impl Default for CropMode {
-    fn default() -> Self {
-        CropMode::None
-    }
+    AspectRatio {
+        width: u32,
+        height: u32,
+    },
+    Pixels {
+        width: u32,
+        height: u32,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -82,6 +82,13 @@ impl Settings {
             if q == 0 || q > 100 {
                 return Err(crate::IbpError::InvalidSettings(
                     "jpeg quality must be 1..=100".into(),
+                ));
+            }
+        }
+        if let Some(q) = self.webp_quality {
+            if q == 0 || q > 100 {
+                return Err(crate::IbpError::InvalidSettings(
+                    "webp quality must be 1..=100".into(),
                 ));
             }
         }

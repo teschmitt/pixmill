@@ -4,6 +4,7 @@ class QueueStore {
   items = $state<QueueItem[]>([]);
 
   add(newItems: QueueItem[]) {
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity
     const existingPaths = new Set(this.items.map((i) => i.path));
     for (const item of newItems) {
       if (!existingPaths.has(item.path)) {

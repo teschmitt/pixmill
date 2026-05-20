@@ -13,10 +13,7 @@ export interface RawMetadata {
   error: string | null;
 }
 
-export async function ingestPaths(
-  paths: string[],
-  recursive: boolean,
-): Promise<RawMetadata[]> {
+export async function ingestPaths(paths: string[], recursive: boolean): Promise<RawMetadata[]> {
   return await invoke<RawMetadata[]>("ingest_paths", { paths, recursive });
 }
 
@@ -24,23 +21,11 @@ export async function readMetadata(path: string): Promise<RawMetadata> {
   return await invoke<RawMetadata>("read_metadata", { path });
 }
 
-export async function makeThumbnail(
-  path: string,
-  longEdge = 256,
-): Promise<string> {
+export async function makeThumbnail(path: string, longEdge = 256): Promise<string> {
   return await invoke<string>("make_thumbnail", { path, longEdge });
 }
 
-const imageExtensions = [
-  "jpg",
-  "jpeg",
-  "jpe",
-  "png",
-  "webp",
-  "avif",
-  "heic",
-  "heif",
-];
+const imageExtensions = ["jpg", "jpeg", "jpe", "png", "webp", "avif", "heic", "heif"];
 
 export async function pickFiles(): Promise<string[]> {
   const selection = await open({
@@ -88,7 +73,7 @@ export async function runBatch(
   paths: string[],
   outDir: string,
   settings: Settings,
-  onProgress: (update: ProgressUpdate) => void,
+  onProgress: (update: ProgressUpdate) => void
 ): Promise<BatchItemResult[]> {
   const channel = new Channel<ProgressUpdate>();
   channel.onmessage = onProgress;
@@ -99,4 +84,3 @@ export async function runBatch(
     onProgress: channel,
   });
 }
-

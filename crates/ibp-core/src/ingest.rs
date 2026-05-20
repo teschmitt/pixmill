@@ -20,7 +20,10 @@ pub fn collect_from_dir(dir: &Path, recursive: bool) -> Vec<PathBuf> {
 
 /// Filter a flat list of paths to those we recognize as images.
 pub fn filter_supported(paths: impl IntoIterator<Item = PathBuf>) -> Vec<PathBuf> {
-    paths.into_iter().filter(|p| is_supported_input(p)).collect()
+    paths
+        .into_iter()
+        .filter(|p| is_supported_input(p))
+        .collect()
 }
 
 #[cfg(test)]

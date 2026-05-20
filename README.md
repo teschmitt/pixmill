@@ -10,14 +10,14 @@ Electron, no servers.
 
 ## Features
 
-- 🗂  Drag-and-drop, file picker, recursive folder picker
-- 🖼  Live thumbnail grid for up to ~100 images at a time
-- ✂  Resize (long-edge px or %), crop (aspect ratio or pixels), rotate / flip
-- 🧭  EXIF orientation baked into output pixels — no more sideways portraits
-- ⚡  Parallel batch processing in Rust (`rayon`), per-file progress over Tauri channels
-- 💾  Originals are never touched — output goes to a folder you choose
-- 🔁  Sticky settings — your last-used configuration restores on launch
-- 🖥  Native window: macOS · Windows · Linux. ~6–15 MB release binary.
+- 🗂 Drag-and-drop, file picker, recursive folder picker
+- 🖼 Live thumbnail grid for up to ~100 images at a time
+- ✂ Resize (long-edge px or %), crop (aspect ratio or pixels), rotate / flip
+- 🧭 EXIF orientation baked into output pixels — no more sideways portraits
+- ⚡ Parallel batch processing in Rust (`rayon`), per-file progress over Tauri channels
+- 💾 Originals are never touched — output goes to a folder you choose
+- 🔁 Sticky settings — your last-used configuration restores on launch
+- 🖥 Native window: macOS · Windows · Linux. ~6–15 MB release binary.
 
 ## Quick start
 
@@ -32,6 +32,12 @@ pnpm tauri dev
 
 On Linux you'll also need GTK / WebKit dev headers — see [Tauri's prerequisites
 guide](https://tauri.app/start/prerequisites/) for the exact apt/dnf incantations.
+
+The `webp` crate uses `bindgen` at build time, which needs `libclang`. macOS
+already provides it via the Xcode Command Line Tools. On Linux, install
+`libclang-dev`. On Windows, install [LLVM](https://releases.llvm.org/) (e.g.
+`winget install LLVM.LLVM`) if it isn't already on `PATH` via the Visual Studio
+C++ workload.
 
 ## Build a release bundle
 
@@ -62,7 +68,7 @@ streams progress back to the UI via `tauri::ipc::Channel`.
 ```sh
 pnpm tauri dev            # run the app with hot reload
 pnpm check                # type-check the frontend
-cargo test -p ibp-core    # 19 image-pipeline tests
+cargo test -p ibp-core    # 21 image-pipeline tests
 cargo check -p ibp-core   # fast iteration without GTK system libs
 ```
 
@@ -75,11 +81,11 @@ crop, rotate, EXIF orientation, encode, and parallel batch execution end-to-end.
 These formats need system libraries because no mature pure-Rust decoder exists
 yet. They're gated behind Cargo features:
 
-| Platform | Install                               | Then build with                                      |
-|----------|---------------------------------------|------------------------------------------------------|
-| macOS    | `brew install dav1d libheif`          | `pnpm tauri build -- --features "ibp-core/avif-decode ibp-core/heic"` |
-| Linux    | `sudo apt install libdav1d-dev libheif-dev` | same as above                                  |
-| Windows  | `vcpkg install dav1d libheif`         | same as above                                        |
+| Platform | Install                                     | Then build with                                                       |
+| -------- | ------------------------------------------- | --------------------------------------------------------------------- |
+| macOS    | `brew install dav1d libheif`                | `pnpm tauri build -- --features "ibp-core/avif-decode ibp-core/heic"` |
+| Linux    | `sudo apt install libdav1d-dev libheif-dev` | same as above                                                         |
+| Windows  | `vcpkg install dav1d libheif`               | same as above                                                         |
 
 AVIF and HEIC inputs are auto-converted to JPEG on output (HEIC encoders are a
 mess — see [`PLAN.md`](./PLAN.md) for the design note).
@@ -88,11 +94,10 @@ mess — see [`PLAN.md`](./PLAN.md) for the design note).
 
 The MVP is shipped. Planned follow-ups, roughly in order:
 
-1. Lossy WebP encoding (the slider is wired but currently no-op)
-2. Target-file-size resize (iterative quality search)
-3. Full EXIF blob copy on output (today: orientation only)
-4. Watch-folder mode
-5. Named presets
+1. Target-file-size resize (iterative quality search)
+2. Full EXIF blob copy on output (today: orientation only)
+3. Watch-folder mode
+4. Named presets
 
 The full backlog with implementation notes is in [`PLAN.md`](./PLAN.md).
 
@@ -100,8 +105,8 @@ The full backlog with implementation notes is in [`PLAN.md`](./PLAN.md).
 
 [`CLAUDE.md`](./CLAUDE.md) is the canonical guide for working in this repo — it
 covers conventions, where logic should live, and the things that will trip you
-up (lossless-only WebP, AVIF/HEIC feature flags, the TS↔Rust type mirroring).
-Read it before opening a PR.
+up (AVIF/HEIC feature flags, the TS↔Rust type mirroring). Read it before
+opening a PR.
 
 ## License
 

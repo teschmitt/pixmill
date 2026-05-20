@@ -1,32 +1,19 @@
 <script lang="ts">
   import { settings } from "$lib/stores/settings.svelte";
-  import type {
-    CropMode,
-    OutputFormatChoice,
-    ResizeMode,
-    RotateMode,
-  } from "$lib/types";
+  import type { CropMode, OutputFormatChoice, ResizeMode, RotateMode } from "$lib/types";
 
   let s = $derived(settings.current);
 
   let resizeKind = $derived(s.resize.kind);
-  let resizePixels = $derived(
-    s.resize.kind === "maxLongEdge" ? s.resize.pixels : 1920,
-  );
-  let resizePercent = $derived(
-    s.resize.kind === "percentage" ? s.resize.percent : 50,
-  );
+  let resizePixels = $derived(s.resize.kind === "maxLongEdge" ? s.resize.pixels : 1920);
+  let resizePercent = $derived(s.resize.kind === "percentage" ? s.resize.percent : 50);
 
   let cropKind = $derived(s.crop.kind);
   let cropW = $derived(
-    s.crop.kind === "aspectRatio" || s.crop.kind === "pixels"
-      ? s.crop.width
-      : 1,
+    s.crop.kind === "aspectRatio" || s.crop.kind === "pixels" ? s.crop.width : 1
   );
   let cropH = $derived(
-    s.crop.kind === "aspectRatio" || s.crop.kind === "pixels"
-      ? s.crop.height
-      : 1,
+    s.crop.kind === "aspectRatio" || s.crop.kind === "pixels" ? s.crop.height : 1
   );
 
   function setResize(mode: ResizeMode) {
@@ -123,8 +110,7 @@
       type="radio"
       name="crop"
       checked={cropKind === "aspectRatio"}
-      onchange={() =>
-        setCrop({ kind: "aspectRatio", width: cropW, height: cropH })}
+      onchange={() => setCrop({ kind: "aspectRatio", width: cropW, height: cropH })}
     />
     Aspect
     <input
@@ -158,8 +144,7 @@
       type="radio"
       name="crop"
       checked={cropKind === "pixels"}
-      onchange={() =>
-        setCrop({ kind: "pixels", width: cropW, height: cropH })}
+      onchange={() => setCrop({ kind: "pixels", width: cropW, height: cropH })}
     />
     Pixels
     <input
@@ -191,11 +176,8 @@
 
   <h2>Rotate</h2>
   <div class="row">
-    {#each rotateOptions as opt}
-      <button
-        class:active={s.rotate === opt.value}
-        onclick={() => setRotate(opt.value)}
-      >
+    {#each rotateOptions as opt (opt.value)}
+      <button class:active={s.rotate === opt.value} onclick={() => setRotate(opt.value)}>
         {opt.label}
       </button>
     {/each}
@@ -206,8 +188,7 @@
     Format
     <select
       value={s.outputFormat}
-      onchange={(e) =>
-        setFormat(e.currentTarget.value as OutputFormatChoice)}
+      onchange={(e) => setFormat(e.currentTarget.value as OutputFormatChoice)}
     >
       <option value="keep">Keep source</option>
       <option value="jpeg">JPEG</option>
@@ -224,8 +205,7 @@
         min="1"
         max="100"
         value={s.jpegQuality ?? 85}
-        oninput={(e) =>
-          (settings.current.jpegQuality = Number(e.currentTarget.value))}
+        oninput={(e) => (settings.current.jpegQuality = Number(e.currentTarget.value))}
       />
       <span class="qty">{s.jpegQuality ?? 85}</span>
     </label>
@@ -238,8 +218,7 @@
         min="1"
         max="100"
         value={s.webpQuality ?? 85}
-        oninput={(e) =>
-          (settings.current.webpQuality = Number(e.currentTarget.value))}
+        oninput={(e) => (settings.current.webpQuality = Number(e.currentTarget.value))}
       />
       <span class="qty">{s.webpQuality ?? 85}</span>
     </label>
@@ -249,8 +228,7 @@
     <input
       type="checkbox"
       checked={s.preserveExif}
-      onchange={(e) =>
-        (settings.current.preserveExif = e.currentTarget.checked)}
+      onchange={(e) => (settings.current.preserveExif = e.currentTarget.checked)}
     />
     Preserve EXIF metadata
   </label>

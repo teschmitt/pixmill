@@ -30,9 +30,6 @@ export async function requestPendingThumbnails(): Promise<void> {
   };
 
   await Promise.all(
-    Array.from(
-      { length: Math.min(THUMB_CONCURRENCY, pending.length) },
-      () => next(),
-    ),
+    Array.from({ length: Math.min(THUMB_CONCURRENCY, pending.length) }, () => next())
   );
 }

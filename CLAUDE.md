@@ -54,9 +54,11 @@ pnpm tauri build        # production bundle
 
 ## Things that will trip you up
 
-- **WebP encoding is lossless only.** The `image` crate's WebP encoder ignores
-  quality. The slider in the UI is wired but currently has no effect for WebP.
-  Lossy WebP is a backlog item requiring the `webp` crate.
+- **WebP quality slider is lossy by default; `webp_quality: null` is the
+  lossless escape hatch.** Lossy encoding goes through the `webp` crate
+  (vendors libwebp via `libwebp-sys`). Lossless still works but is only
+  reachable by setting `webpQuality: null` in stored settings JSON — no UI
+  toggle.
 - **AVIF and HEIC decode are behind Cargo features** (`avif-decode`, `heic`).
   They need `dav1d` and `libheif` system libs. Without the features, those
   formats are accepted into the queue but error on processing with a clear
@@ -92,6 +94,6 @@ watch folder).
 1. Check `PLAN.md` first — it might already be in the v2 backlog with notes.
 2. Decide where it lives: a new op in `crates/ibp-core/src/ops/` (most likely),
    a Tauri command in `src-tauri/src/commands.rs`, or UI in `src/lib/components/`.
-3. If it touches `Settings`, update Rust *and* TS together.
+3. If it touches `Settings`, update Rust _and_ TS together.
 4. Add a test in `tests/end_to_end.rs` using `write_red_png` / `tempdir` helpers.
 5. Frontend changes: run `pnpm check`. Pipeline changes: `cargo test -p ibp-core`.

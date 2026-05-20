@@ -150,3 +150,89 @@ fn batch_keeps_source_format_when_set_to_keep() {
     let dest = results[0].destination.as_ref().unwrap();
     assert_eq!(dest.extension().and_then(|s| s.to_str()), Some("png"));
 }
+
+// Solid-color PNGs compress to ~nothing in both lossy and lossless modes, so
+// the size comparison would be noise. Pseudo-random per-pixel RGB defeats the
+// lossless predictor + entropy coder while lossy DCT quantizes the noise away.
+fn write_noisy_png(dir: &PathBuf, name: &str, w: u32, h: u32) -> PathBuf {
+    let mut img = RgbImage::new(w, h);
+    for (x, y, p) in img.enumerate_pixels_mut() {
+        let r = ((x.wrapping_mul(2654435761) ^ y.wrapping_mul(40503)) & 0xFF) as u8;
+        let g = ((x.wrapping_mul(374761393) ^ y.wrapping_mul(668265263)) & 0xFF) as u8;
+        let b = ((x.wrapping_mul(2246822519) ^ y.wrapping_mul(3266489917)) & 0xFF) as u8;
+        *p = image::Rgb([r, g, b]);
+    }
+    let path = dir.join(name);
+    DynamicImage::ImageRgb8(img)
+        .save_with_format(&path, ImageFormat::Png)
+        .unwrap();
+    path
+}
+
+#[test]
+fn webp_lossy_is_smaller_than_lossless() {
+    use settings::OutputFormat;
+
+    let src_dir = tempdir("webp-lossy-src");
+    let lossy_out = tempdir("webp-lossy-out");
+    let lossless_out = tempdir("webp-lossless-out");
+    let src = write_noisy_png(&src_dir, "noise.png", 256, 256);
+
+    let mut lossy = Settings::default();
+    lossy.output_format = OutputFormat::Webp;
+    lossy.webp_quality = Some(60);
+
+    let mut lossless = Settings::default();
+    lossless.output_format = OutputFormat::Webp;
+    lossless.webp_quality = None;
+
+    let lossy_results = pipeline::run_batch(&[src.clone()], &lossy_out, &lossy, |_| {});
+    let lossless_results = pipeline::run_batch(&[src.clone()], &lossless_out, &lossless, |_| {});
+
+    let lossy_path = lossy_results[0].destination.as_ref().unwrap();
+    let lossless_path = lossless_results[0].destination.as_ref().unwrap();
+    assert_eq!(
+        lossy_path.extension().and_then(|s| s.to_str()),
+        Some("webp")
+    );
+    assert_eq!(
+        lossless_path.extension().and_then(|s| s.to_str()),
+        Some("webp")
+    );
+
+    image::open(lossy_path).expect("lossy decode roundtrip");
+    image::open(lossless_path).expect("lossless decode roundtrip");
+
+    let lossy_size = std::fs::metadata(lossy_path).unwrap().len();
+    let lossless_size = std::fs::metadata(lossless_path).unwrap().len();
+    assert!(
+        lossy_size < lossless_size,
+        "expected lossy ({lossy_size} bytes) < lossless ({lossless_size} bytes)",
+    );
+}
+
+#[test]
+fn webp_lossy_preserves_alpha_channel() {
+    use settings::OutputFormat;
+
+    let src_dir = tempdir("webp-alpha-src");
+    let out_dir = tempdir("webp-alpha-out");
+
+    let mut img = image::RgbaImage::new(32, 32);
+    for (x, y, p) in img.enumerate_pixels_mut() {
+        *p = image::Rgba([220, 50, 50, ((x + y) * 4).min(255) as u8]);
+    }
+    let src = src_dir.join("alpha.png");
+    DynamicImage::ImageRgba8(img)
+        .save_with_format(&src, ImageFormat::Png)
+        .unwrap();
+
+    let mut settings = Settings::default();
+    settings.output_format = OutputFormat::Webp;
+    settings.webp_quality = Some(80);
+
+    let results = pipeline::run_batch(&[src], &out_dir, &settings, |_| {});
+    let dest = results[0].destination.as_ref().unwrap();
+    let decoded = image::open(dest).unwrap();
+    assert!(decoded.color().has_alpha(), "alpha lost on roundtrip");
+}

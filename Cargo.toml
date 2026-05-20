@@ -16,6 +16,7 @@ kamadak-exif = "0.6"
 rayon = "1"
 walkdir = "2"
 base64 = "0.22"
+webp = "0.3.1"
 
 # Release profile tuned for small bundle size.
 # `opt-level = "s"` favors size over raw speed; switch to 3 if image

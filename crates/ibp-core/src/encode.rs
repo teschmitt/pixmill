@@ -42,7 +42,7 @@ pub fn write_to_path(
     match format {
         ImageFormat::Jpeg => write_jpeg(image, writer, settings, path),
         ImageFormat::Png => write_png(image, writer, path),
-        ImageFormat::Webp => write_webp(image, writer, path),
+        ImageFormat::Webp => write_webp(image, writer, settings, path),
         ImageFormat::Avif | ImageFormat::Heic => Err(IbpError::Encode {
             path: path.to_path_buf(),
             source: image::ImageError::Parameter(image::error::ParameterError::from_kind(
@@ -63,10 +63,11 @@ fn write_jpeg(
     let quality = settings.jpeg_quality.unwrap_or(85);
     let rgb = image.to_rgb8();
     let encoder = JpegEncoder::new_with_quality(writer, quality);
-    rgb.write_with_encoder(encoder).map_err(|e| IbpError::Encode {
-        path: path.to_path_buf(),
-        source: e,
-    })
+    rgb.write_with_encoder(encoder)
+        .map_err(|e| IbpError::Encode {
+            path: path.to_path_buf(),
+            source: e,
+        })
 }
 
 fn write_png(image: &DynamicImage, writer: BufWriter<File>, path: &Path) -> IbpResult<()> {
@@ -101,35 +102,56 @@ fn write_png(image: &DynamicImage, writer: BufWriter<File>, path: &Path) -> IbpR
     }
 }
 
-fn write_webp(image: &DynamicImage, writer: BufWriter<File>, path: &Path) -> IbpResult<()> {
-    // image-webp 0.2 (via image's webp feature) currently encodes lossless only.
-    // Quality slider is wired but ignored until we add the `webp` crate in a follow-up.
-    let encoder = WebPEncoder::new_lossless(writer);
-    if image.color().has_alpha() {
-        let rgba = image.to_rgba8();
-        encoder
-            .write_image(
-                rgba.as_raw(),
-                rgba.width(),
-                rgba.height(),
-                image::ExtendedColorType::Rgba8,
-            )
-            .map_err(|e| IbpError::Encode {
+fn write_webp(
+    image: &DynamicImage,
+    mut writer: BufWriter<File>,
+    settings: &crate::Settings,
+    path: &Path,
+) -> IbpResult<()> {
+    match settings.webp_quality {
+        Some(q) => {
+            let quality = q as f32;
+            let encoded = if image.color().has_alpha() {
+                let rgba = image.to_rgba8();
+                webp::Encoder::from_rgba(rgba.as_raw(), rgba.width(), rgba.height()).encode(quality)
+            } else {
+                let rgb = image.to_rgb8();
+                webp::Encoder::from_rgb(rgb.as_raw(), rgb.width(), rgb.height()).encode(quality)
+            };
+            std::io::Write::write_all(&mut writer, &encoded).map_err(|e| IbpError::Io {
                 path: path.to_path_buf(),
                 source: e,
             })
-    } else {
-        let rgb = image.to_rgb8();
-        encoder
-            .write_image(
-                rgb.as_raw(),
-                rgb.width(),
-                rgb.height(),
-                image::ExtendedColorType::Rgb8,
-            )
-            .map_err(|e| IbpError::Encode {
-                path: path.to_path_buf(),
-                source: e,
-            })
+        }
+        None => {
+            let encoder = WebPEncoder::new_lossless(writer);
+            if image.color().has_alpha() {
+                let rgba = image.to_rgba8();
+                encoder
+                    .write_image(
+                        rgba.as_raw(),
+                        rgba.width(),
+                        rgba.height(),
+                        image::ExtendedColorType::Rgba8,
+                    )
+                    .map_err(|e| IbpError::Encode {
+                        path: path.to_path_buf(),
+                        source: e,
+                    })
+            } else {
+                let rgb = image.to_rgb8();
+                encoder
+                    .write_image(
+                        rgb.as_raw(),
+                        rgb.width(),
+                        rgb.height(),
+                        image::ExtendedColorType::Rgb8,
+                    )
+                    .map_err(|e| IbpError::Encode {
+                        path: path.to_path_buf(),
+                        source: e,
+                    })
+            }
+        }
     }
 }

@@ -29,9 +29,7 @@
       settings: $state.snapshot(settings.current),
       outputDir: settings.outputDir,
     };
-    void saveSettings(snapshot).catch((e) =>
-      console.warn("saveSettings failed:", e),
-    );
+    void saveSettings(snapshot).catch((e) => console.warn("saveSettings failed:", e));
   });
 </script>
 

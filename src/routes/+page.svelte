@@ -48,7 +48,12 @@
     margin: 0;
     background: var(--bg);
     color: var(--text);
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    font-family:
+      system-ui,
+      -apple-system,
+      Segoe UI,
+      Roboto,
+      sans-serif;
   }
   .app {
     display: flex;

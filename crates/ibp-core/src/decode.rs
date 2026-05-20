@@ -56,12 +56,11 @@ fn decode_heic(path: &Path) -> IbpResult<DynamicImage> {
     use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
 
     let lib = LibHeif::new();
-    let ctx = HeifContext::read_from_file(
-        path.to_str().ok_or_else(|| IbpError::UnsupportedFormat {
+    let ctx =
+        HeifContext::read_from_file(path.to_str().ok_or_else(|| IbpError::UnsupportedFormat {
             path: path.to_path_buf(),
-        })?,
-    )
-    .map_err(|e| IbpError::Resize(format!("heic: {e}")))?;
+        })?)
+        .map_err(|e| IbpError::Resize(format!("heic: {e}")))?;
     let handle = ctx
         .primary_image_handle()
         .map_err(|e| IbpError::Resize(format!("heic handle: {e}")))?;

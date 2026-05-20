@@ -98,7 +98,9 @@
     align-items: center;
     gap: 10px;
     background: var(--panel);
-    transition: border-color 0.15s, background 0.15s;
+    transition:
+      border-color 0.15s,
+      background 0.15s;
   }
   .drop.active {
     border-color: var(--accent);

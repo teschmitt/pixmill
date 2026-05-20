@@ -8,7 +8,7 @@
     !batch.running &&
       queue.items.length > 0 &&
       settings.outputDir !== null &&
-      queue.items.some((i) => i.status !== "error"),
+      queue.items.some((i) => i.status !== "error")
   );
 
   async function chooseOutput() {
@@ -35,9 +35,7 @@
         (update) => {
           batch.completed = update.completed;
           batch.total = update.total;
-          const matching = queue.items.find(
-            (i) => i.path === update.item.source,
-          );
+          const matching = queue.items.find((i) => i.path === update.item.source);
           if (matching) {
             if (update.item.error) {
               queue.update(matching.id, {
@@ -52,12 +50,12 @@
               });
             }
           }
-        },
+        }
       );
       batch.finish(
         batch.errors === 0
           ? `Processed ${batch.completed} file(s)`
-          : `Processed ${batch.completed} with ${batch.errors} error(s)`,
+          : `Processed ${batch.completed} with ${batch.errors} error(s)`
       );
     } catch (err) {
       batch.finish(`Batch failed: ${err}`);
@@ -80,9 +78,7 @@
     <div class="progress">
       <div
         class="bar"
-        style="width: {batch.total > 0
-          ? (batch.completed / batch.total) * 100
-          : 0}%"
+        style="width: {batch.total > 0 ? (batch.completed / batch.total) * 100 : 0}%"
       ></div>
     </div>
     <div class="muted small">

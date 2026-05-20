@@ -10,11 +10,7 @@
   }
 </script>
 
-<article
-  class="card"
-  class:error={item.status === "error"}
-  title={item.path}
->
+<article class="card" class:error={item.status === "error"} title={item.path}>
   <div class="thumb">
     {#if item.thumbnailDataUrl}
       <img src={item.thumbnailDataUrl} alt={item.filename} />

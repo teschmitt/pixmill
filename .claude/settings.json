@@ -2,5 +2,19 @@
   "statusLine": {
     "type": "command",
     "command": "bash /Users/thomas.schmitt/dev/agentic-coding-foundation/image-batch-processor/.claude/statusline-command.sh"
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/thomas.schmitt/dev/agentic-coding-foundation/image-batch-processor/.claude/hooks/quality-check.sh",
+            "timeout": 120,
+            "statusMessage": "Checking lint, format, and clippy..."
+          }
+        ]
+      }
+    ]
   }
 }

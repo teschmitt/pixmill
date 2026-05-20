@@ -12,10 +12,7 @@ export function formatBytes(bytes: number | undefined): string {
   return `${v.toFixed(decimals)} ${UNITS[i]}`;
 }
 
-export function formatDimensions(
-  w: number | undefined,
-  h: number | undefined,
-): string {
+export function formatDimensions(w: number | undefined, h: number | undefined): string {
   if (w == null || h == null) return "—";
   return `${w}×${h}`;
 }

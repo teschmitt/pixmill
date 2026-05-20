@@ -57,7 +57,14 @@ mod tests {
     #[test]
     fn pixel_crop_centered() {
         let img = solid_image(100, 100);
-        let cropped = apply(img, CropMode::Pixels { width: 40, height: 40 }).unwrap();
+        let cropped = apply(
+            img,
+            CropMode::Pixels {
+                width: 40,
+                height: 40,
+            },
+        )
+        .unwrap();
         assert_eq!(cropped.dimensions(), (40, 40));
     }
 }
