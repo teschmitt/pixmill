@@ -1,0 +1,27 @@
+[package]
+name = "ibp-core"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "ibp_core"
+path = "src/lib.rs"
+
+[features]
+default = []
+# AVIF decoding via image crate (requires `dav1d` system library — Mac: `brew install dav1d`).
+avif-decode = ["image/avif-native"]
+# HEIC decoding via libheif (requires `libheif` system library — Mac: `brew install libheif`).
+heic = ["dep:libheif-rs"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+image = { workspace = true }
+fast_image_resize = { workspace = true }
+kamadak-exif = { workspace = true }
+rayon = { workspace = true }
+walkdir = { workspace = true }
+base64 = { workspace = true }
+libheif-rs = { version = "1.0", optional = true }
