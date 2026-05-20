@@ -10,8 +10,8 @@
           {
             "type": "command",
             "command": "bash /Users/thomas.schmitt/dev/agentic-coding-foundation/image-batch-processor/.claude/hooks/quality-check.sh",
-            "timeout": 120,
-            "statusMessage": "Checking lint, format, and clippy..."
+            "timeout": 300,
+            "statusMessage": "Running make check (fmt, lint, type-check, tests)..."
           }
         ]
       }
