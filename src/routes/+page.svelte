@@ -3,7 +3,9 @@
   import QueueList from "$lib/components/QueueList.svelte";
   import SettingsPanel from "$lib/components/SettingsPanel.svelte";
   import RunBar from "$lib/components/RunBar.svelte";
+  import PreviewModal from "$lib/components/PreviewModal.svelte";
   import { queue } from "$lib/stores/queue.svelte";
+  import { preview } from "$lib/stores/preview.svelte";
 </script>
 
 <main class="app">
@@ -22,6 +24,10 @@
       <RunBar />
     </aside>
   </div>
+
+  {#if preview.item}
+    <PreviewModal item={preview.item} onClose={() => preview.close()} />
+  {/if}
 </main>
 
 <style>

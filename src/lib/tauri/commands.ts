@@ -84,3 +84,25 @@ export async function runBatch(
     onProgress: channel,
   });
 }
+
+export interface PreviewResult {
+  dataUrl: string;
+  width: number;
+  height: number;
+  sizeBytes: number;
+  format: ImageFormat;
+}
+
+export async function previewOne(path: string, settings: Settings): Promise<PreviewResult> {
+  return await invoke<PreviewResult>("preview_one", { path, settings });
+}
+
+export interface SourceLoad {
+  dataUrl: string;
+  width: number;
+  height: number;
+}
+
+export async function loadSource(path: string): Promise<SourceLoad> {
+  return await invoke<SourceLoad>("load_source", { path });
+}

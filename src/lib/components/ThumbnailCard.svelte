@@ -1,16 +1,38 @@
 <script lang="ts">
   import { queue } from "$lib/stores/queue.svelte";
+  import { preview } from "$lib/stores/preview.svelte";
   import { formatBytes, formatDimensions } from "$lib/format";
   import type { QueueItem } from "$lib/types";
 
   let { item }: { item: QueueItem } = $props();
 
-  function remove() {
+  function remove(event: MouseEvent) {
+    event.stopPropagation();
     queue.remove(item.id);
+  }
+
+  function openPreview() {
+    preview.open(item);
+  }
+
+  function handleKey(event: KeyboardEvent) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openPreview();
+    }
   }
 </script>
 
-<article class="card" class:error={item.status === "error"} title={item.path}>
+<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
+<article
+  class="card"
+  class:error={item.status === "error"}
+  title={item.path}
+  role="button"
+  tabindex="0"
+  onclick={openPreview}
+  onkeydown={handleKey}
+>
   <div class="thumb">
     {#if item.thumbnailDataUrl}
       <img src={item.thumbnailDataUrl} alt={item.filename} />
@@ -52,9 +74,15 @@
     display: flex;
     flex-direction: column;
     transition: border-color 0.15s;
+    cursor: pointer;
+    text-align: left;
   }
   .card:hover {
     border-color: var(--accent);
+  }
+  .card:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
   .card.error {
     border-color: #c0392b;

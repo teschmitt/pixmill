@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use image::DynamicImage;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -41,8 +42,10 @@ pub fn plan_output_path(source: &Path, out_dir: &Path, ext: &str) -> PathBuf {
     candidate
 }
 
-/// Process a single file end-to-end.
-pub fn process_one(source: &Path, out_dir: &Path, settings: &Settings) -> IbpResult<PathBuf> {
+/// Validate settings, decode the source, apply all pipeline ops, and resolve the
+/// output format. Shared by [`process_one`] (writes bytes to disk) and
+/// [`process_one_to_bytes`] (returns bytes in memory).
+pub fn prepare(source: &Path, settings: &Settings) -> IbpResult<(DynamicImage, ImageFormat)> {
     settings.validate()?;
     let exif_orientation = if settings.preserve_exif {
         crate::exif::read_orientation(source)
@@ -53,6 +56,12 @@ pub fn process_one(source: &Path, out_dir: &Path, settings: &Settings) -> IbpRes
     let image = ops::apply_all(image, settings, exif_orientation)?;
     let source_format = ImageFormat::from_extension(source);
     let out_format = encode::resolve_output_format(source_format, settings.output_format);
+    Ok((image, out_format))
+}
+
+/// Process a single file end-to-end, writing the result to `out_dir`.
+pub fn process_one(source: &Path, out_dir: &Path, settings: &Settings) -> IbpResult<PathBuf> {
+    let (image, out_format) = prepare(source, settings)?;
     let out_path = plan_output_path(source, out_dir, out_format.extension());
     match settings.compression {
         crate::settings::CompressionMode::TargetFileSize { kilobytes } => {
@@ -63,6 +72,39 @@ pub fn process_one(source: &Path, out_dir: &Path, settings: &Settings) -> IbpRes
         }
     }
     Ok(out_path)
+}
+
+/// Encoded preview bytes plus the dimensions they represent. Dimensions are taken
+/// from the post-ops `DynamicImage` so callers don't have to re-decode the bytes.
+#[derive(Debug, Clone)]
+pub struct PreviewBytes {
+    pub format: ImageFormat,
+    pub width: u32,
+    pub height: u32,
+    pub bytes: Vec<u8>,
+}
+
+/// Run the full pipeline in memory and return the encoded output bytes plus the
+/// processed dimensions. Used for previews; the batch path still goes through
+/// [`process_one`] so its rayon workers can stream to disk without buffering.
+pub fn process_one_to_bytes(source: &Path, settings: &Settings) -> IbpResult<PreviewBytes> {
+    let (image, format) = prepare(source, settings)?;
+    let width = image.width();
+    let height = image.height();
+    let bytes = match settings.compression {
+        crate::settings::CompressionMode::TargetFileSize { kilobytes } => {
+            encode::to_bytes_target_size(&image, format, kilobytes, source)?
+        }
+        crate::settings::CompressionMode::Manual => {
+            encode::to_bytes(&image, format, settings, source)?
+        }
+    };
+    Ok(PreviewBytes {
+        format,
+        width,
+        height,
+        bytes,
+    })
 }
 
 /// Process a list of files in parallel, calling `on_progress` after each one finishes.

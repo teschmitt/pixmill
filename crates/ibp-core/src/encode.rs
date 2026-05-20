@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::BufWriter;
+use std::io::{BufWriter, Write};
 use std::path::Path;
 
 use image::{
@@ -39,12 +39,36 @@ pub fn write_to_path(
         source: e,
     })?;
     let writer = BufWriter::new(file);
+    encode_into(image, writer, format, settings, path)
+}
+
+/// Encode `image` to an in-memory `Vec<u8>` using the same per-format logic as
+/// [`write_to_path`]. `context_path` is only used for error reporting (typically
+/// the source file's path).
+pub fn to_bytes(
+    image: &DynamicImage,
+    format: ImageFormat,
+    settings: &crate::Settings,
+    context_path: &Path,
+) -> IbpResult<Vec<u8>> {
+    let mut buf: Vec<u8> = Vec::with_capacity(64 * 1024);
+    encode_into(image, &mut buf, format, settings, context_path)?;
+    Ok(buf)
+}
+
+fn encode_into<W: Write>(
+    image: &DynamicImage,
+    writer: W,
+    format: ImageFormat,
+    settings: &crate::Settings,
+    context_path: &Path,
+) -> IbpResult<()> {
     match format {
-        ImageFormat::Jpeg => write_jpeg(image, writer, settings, path),
-        ImageFormat::Png => write_png(image, writer, path),
-        ImageFormat::Webp => write_webp(image, writer, settings, path),
+        ImageFormat::Jpeg => encode_jpeg(image, writer, settings, context_path),
+        ImageFormat::Png => encode_png(image, writer, context_path),
+        ImageFormat::Webp => encode_webp(image, writer, settings, context_path),
         ImageFormat::Avif | ImageFormat::Heic => Err(IbpError::Encode {
-            path: path.to_path_buf(),
+            path: context_path.to_path_buf(),
             source: image::ImageError::Parameter(image::error::ParameterError::from_kind(
                 image::error::ParameterErrorKind::Generic(format!(
                     "{format:?} encode is not supported in the MVP"
@@ -56,30 +80,37 @@ pub fn write_to_path(
 
 /// Encode an image to JPEG/WebP bytes targeting a kilobyte budget. Binary-searches
 /// encoder quality (max 6 iterations, early-stop in [target*0.9, target]). If even
-/// quality 1 exceeds the target, writes the quality-1 result anyway — the budget
+/// quality 1 exceeds the target, returns the quality-1 result anyway — the budget
 /// is treated as soft.
+pub fn to_bytes_target_size(
+    image: &DynamicImage,
+    format: ImageFormat,
+    kilobytes: u32,
+    context_path: &Path,
+) -> IbpResult<Vec<u8>> {
+    let target_bytes = (kilobytes as usize).saturating_mul(1024);
+    match format {
+        ImageFormat::Jpeg => search_jpeg_for_target(image, target_bytes, context_path),
+        ImageFormat::Webp => Ok(search_webp_for_target(image, target_bytes)),
+        _ => Err(IbpError::InvalidSettings(format!(
+            "target file size requires JPEG or WebP output (got {format:?})"
+        ))),
+    }
+}
+
 pub fn write_to_path_target_size(
     image: &DynamicImage,
     path: &Path,
     format: ImageFormat,
     kilobytes: u32,
 ) -> IbpResult<()> {
-    let target_bytes = (kilobytes as usize).saturating_mul(1024);
-    let bytes = match format {
-        ImageFormat::Jpeg => search_jpeg_for_target(image, target_bytes, path)?,
-        ImageFormat::Webp => search_webp_for_target(image, target_bytes),
-        _ => {
-            return Err(IbpError::InvalidSettings(format!(
-                "target file size requires JPEG or WebP output (got {format:?})"
-            )));
-        }
-    };
+    let bytes = to_bytes_target_size(image, format, kilobytes, path)?;
     let file = File::create(path).map_err(|e| IbpError::Io {
         path: path.to_path_buf(),
         source: e,
     })?;
     let mut writer = BufWriter::new(file);
-    std::io::Write::write_all(&mut writer, &bytes).map_err(|e| IbpError::Io {
+    writer.write_all(&bytes).map_err(|e| IbpError::Io {
         path: path.to_path_buf(),
         source: e,
     })
@@ -90,7 +121,7 @@ const TARGET_SIZE_MAX_ITERS: u32 = 6;
 fn search_jpeg_for_target(
     image: &DynamicImage,
     target: usize,
-    path: &Path,
+    context_path: &Path,
 ) -> IbpResult<Vec<u8>> {
     let rgb = image.to_rgb8();
     let encode = |q: u8| -> IbpResult<Vec<u8>> {
@@ -98,7 +129,7 @@ fn search_jpeg_for_target(
         let encoder = JpegEncoder::new_with_quality(&mut buf, q);
         rgb.write_with_encoder(encoder)
             .map_err(|e| IbpError::Encode {
-                path: path.to_path_buf(),
+                path: context_path.to_path_buf(),
                 source: e,
             })?;
         Ok(buf)
@@ -201,24 +232,23 @@ fn search_webp_for_target(image: &DynamicImage, target: usize) -> Vec<u8> {
     best_under.or(q1_bytes).unwrap_or_else(|| encode(1))
 }
 
-fn write_jpeg(
+fn encode_jpeg<W: Write>(
     image: &DynamicImage,
-    writer: BufWriter<File>,
+    writer: W,
     settings: &crate::Settings,
-    path: &Path,
+    context_path: &Path,
 ) -> IbpResult<()> {
     let quality = settings.jpeg_quality.unwrap_or(85);
     let rgb = image.to_rgb8();
     let encoder = JpegEncoder::new_with_quality(writer, quality);
     rgb.write_with_encoder(encoder)
         .map_err(|e| IbpError::Encode {
-            path: path.to_path_buf(),
+            path: context_path.to_path_buf(),
             source: e,
         })
 }
 
-fn write_png(image: &DynamicImage, writer: BufWriter<File>, path: &Path) -> IbpResult<()> {
-    // Keep alpha if present; otherwise RGB8.
+fn encode_png<W: Write>(image: &DynamicImage, writer: W, context_path: &Path) -> IbpResult<()> {
     let encoder = PngEncoder::new(writer);
     if image.color().has_alpha() {
         let rgba = image.to_rgba8();
@@ -230,7 +260,7 @@ fn write_png(image: &DynamicImage, writer: BufWriter<File>, path: &Path) -> IbpR
                 image::ExtendedColorType::Rgba8,
             )
             .map_err(|e| IbpError::Encode {
-                path: path.to_path_buf(),
+                path: context_path.to_path_buf(),
                 source: e,
             })
     } else {
@@ -243,17 +273,17 @@ fn write_png(image: &DynamicImage, writer: BufWriter<File>, path: &Path) -> IbpR
                 image::ExtendedColorType::Rgb8,
             )
             .map_err(|e| IbpError::Encode {
-                path: path.to_path_buf(),
+                path: context_path.to_path_buf(),
                 source: e,
             })
     }
 }
 
-fn write_webp(
+fn encode_webp<W: Write>(
     image: &DynamicImage,
-    mut writer: BufWriter<File>,
+    mut writer: W,
     settings: &crate::Settings,
-    path: &Path,
+    context_path: &Path,
 ) -> IbpResult<()> {
     match settings.webp_quality {
         Some(q) => {
@@ -265,8 +295,8 @@ fn write_webp(
                 let rgb = image.to_rgb8();
                 webp::Encoder::from_rgb(rgb.as_raw(), rgb.width(), rgb.height()).encode(quality)
             };
-            std::io::Write::write_all(&mut writer, &encoded).map_err(|e| IbpError::Io {
-                path: path.to_path_buf(),
+            writer.write_all(&encoded).map_err(|e| IbpError::Io {
+                path: context_path.to_path_buf(),
                 source: e,
             })
         }
@@ -282,7 +312,7 @@ fn write_webp(
                         image::ExtendedColorType::Rgba8,
                     )
                     .map_err(|e| IbpError::Encode {
-                        path: path.to_path_buf(),
+                        path: context_path.to_path_buf(),
                         source: e,
                     })
             } else {
@@ -295,7 +325,7 @@ fn write_webp(
                         image::ExtendedColorType::Rgb8,
                     )
                     .map_err(|e| IbpError::Encode {
-                        path: path.to_path_buf(),
+                        path: context_path.to_path_buf(),
                         source: e,
                     })
             }

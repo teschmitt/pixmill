@@ -5,7 +5,11 @@ Current development plan and backlog for Image Batch Processor.
 ## Status
 
 MVP scaffolded and end-to-end functional for JPEG / PNG / WebP (lossy + lossless).
-21 tests pass in `ibp-core`. Frontend type-checks clean. Smoke-tested on macOS
+Target-file-size compression (binary-search on encoder quality) shipped as
+`CompressionMode::TargetFileSize` — a separate enum from `ResizeMode`, since
+it's an encoder concern, not a pixel-resize one. Side-by-side preview modal
+ships next: click a thumbnail to see source vs. processed-with-current-settings.
+27 tests pass in `ibp-core`. Frontend type-checks clean. Smoke-tested on macOS
 2026-05-20 — golden path (queue, settings persistence, batch run) works.
 
 ## Phases (all complete)
@@ -27,15 +31,6 @@ MVP scaffolded and end-to-end functional for JPEG / PNG / WebP (lossy + lossless
 ## V2 backlog
 
 Roughly in suggested implementation order, easiest/highest-value first.
-
-### Target-file-size resize (currently stubbed in v2 type)
-
-- **Why**: User picked this in MVP scoping; deferred because of complexity.
-- **How**: In `ops/resize.rs`, add a new `ResizeMode::TargetFileSize { kilobytes }`
-  variant. Implement via binary search on JPEG quality (and optional max
-  long-edge). Cap iterations at ~6. Only valid for JPEG/WebP output.
-- **Constraint**: Settings type currently doesn't have this variant — add to
-  both Rust `settings.rs` and TS `types.ts`. Add a UI radio.
 
 ### Strip EXIF option
 
@@ -66,14 +61,6 @@ Roughly in suggested implementation order, easiest/highest-value first.
 - **How**: Settings persistence already serializes one snapshot. Extend to
   `{ presets: Vec<NamedPreset>, last_used: Settings }`. Add UI for save/load/delete.
   Suggested storage: same `settings.json`, key `presets`.
-
-### Side-by-side preview (single image)
-
-- **How**: When a card is clicked, open a modal/panel showing source + processed
-  preview side by side using the current settings. Implementation: call a new
-  Tauri command `preview_one(path, settings) -> data_url` that runs the pipeline
-  in-memory and returns a JPEG. Reuse `ibp_core::pipeline::process_one` but
-  return bytes instead of writing to disk.
 
 ### Smoke-test AVIF/HEIC on Mac
 

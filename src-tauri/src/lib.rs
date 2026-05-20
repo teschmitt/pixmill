@@ -11,6 +11,8 @@ pub fn run() {
             commands::read_metadata,
             commands::make_thumbnail,
             commands::run_batch,
+            commands::preview_one,
+            commands::load_source,
             commands::load_settings,
             commands::save_settings,
         ])

@@ -1890,7 +1890,9 @@ dependencies = [
 name = "image-batch-processor"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "ibp-core",
+ "image",
  "serde",
  "serde_json",
  "tauri",

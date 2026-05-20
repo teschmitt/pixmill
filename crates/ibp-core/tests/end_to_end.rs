@@ -329,6 +329,30 @@ fn target_size_rejects_png_output() {
 }
 
 #[test]
+fn process_one_to_bytes_returns_resized_jpeg() {
+    use settings::{OutputFormat, ResizeMode, RotateMode};
+
+    let src_dir = tempdir("preview-bytes-src");
+    let src = write_red_png(&src_dir, "a.png", 800, 400);
+
+    let mut s = Settings::default();
+    s.resize = ResizeMode::MaxLongEdge { pixels: 64 };
+    s.rotate = RotateMode::Cw90;
+    s.output_format = OutputFormat::Jpeg;
+    s.jpeg_quality = Some(80);
+
+    let preview = pipeline::process_one_to_bytes(&src, &s).expect("preview produces bytes");
+    assert_eq!(preview.format, ibp_core::ImageFormat::Jpeg);
+    // JPEG SOI marker.
+    assert_eq!(&preview.bytes[0..2], &[0xFF, 0xD8]);
+
+    // After cw90 on 800x400 we get 400x800; long-edge 64 then yields 32x64.
+    assert_eq!((preview.width, preview.height), (32, 64));
+    let decoded = image::load_from_memory(&preview.bytes).expect("re-decode preview bytes");
+    assert_eq!((decoded.width(), decoded.height()), (32, 64));
+}
+
+#[test]
 fn target_size_per_file_error_on_keep_png_source() {
     use settings::CompressionMode;
 
