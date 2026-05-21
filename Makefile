@@ -1,4 +1,4 @@
-.PHONY: help check install lint fmt fmt-check type-check test dev build build-frontend
+.PHONY: help check install clean lint fmt fmt-check type-check test dev build build-frontend
 
 help:
 	@echo "Usage: make <target>"
@@ -13,6 +13,7 @@ help:
 	@echo "  dev            pnpm tauri dev"
 	@echo "  build          pnpm tauri build (release bundle)"
 	@echo "  build-frontend pnpm build (static frontend only)"
+	@echo "  clean          Remove Rust + frontend build artifacts (keeps node_modules)"
 
 # Re-install when package.json or the lockfile is newer than node_modules.
 # `touch` updates node_modules' own mtime since pnpm mutates contents without it.
@@ -51,3 +52,7 @@ build: node_modules
 
 build-frontend: node_modules
 	pnpm build
+
+clean:
+	cargo clean
+	rm -rf build .svelte-kit
