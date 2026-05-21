@@ -136,5 +136,7 @@ opening a PR.
 
 ## License
 
-MIT. See [`LICENSE`](./LICENSE) (if present) or the `license` field in
-[`package.json`](./package.json).
+GNU Affero General Public License v3.0 or later — see [`LICENSE`](./LICENSE)
+for the full text. The AGPL's network clause means that if you run a modified
+version of Pixmill as a service over a network, you have to make your changes
+available to its users.
