@@ -8,7 +8,14 @@ name = "pixmill_core"
 path = "src/lib.rs"
 
 [features]
-default = []
+default = ["fs", "lossy-webp"]
+# Filesystem APIs: ingest dir-walking, path-taking decode/encode/etc. and the
+# parallel batch runner. Off => wasm-compatible byte-only API surface.
+fs = ["dep:walkdir", "dep:rayon"]
+# Lossy WebP encoding via the `webp` crate (vendors libwebp through libwebp-sys).
+# Off keeps lossless WebP working via the `image` crate while skipping the
+# C-binding build, which is what wasm32-unknown-unknown needs.
+lossy-webp = ["dep:webp"]
 # AVIF decoding via image crate (requires `dav1d` system library — Mac: `brew install dav1d`).
 avif-decode = ["image/avif-native"]
 # HEIC decoding via libheif (requires `libheif` system library — Mac: `brew install libheif`).
@@ -20,9 +27,9 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 image = { workspace = true }
 fast_image_resize = { workspace = true }
-webp = { workspace = true }
+webp = { workspace = true, optional = true }
 kamadak-exif = { workspace = true }
-rayon = { workspace = true }
-walkdir = { workspace = true }
+rayon = { workspace = true, optional = true }
+walkdir = { workspace = true, optional = true }
 base64 = { workspace = true }
 libheif-rs = { version = "1.0", optional = true }

@@ -1,5 +1,4 @@
-use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::io::Write;
 use std::path::Path;
 
 use image::{
@@ -28,23 +27,23 @@ pub fn resolve_output_format(
     }
 }
 
+#[cfg(feature = "fs")]
 pub fn write_to_path(
     image: &DynamicImage,
     path: &Path,
     format: ImageFormat,
     settings: &crate::Settings,
 ) -> IbpResult<()> {
-    let file = File::create(path).map_err(|e| IbpError::Io {
+    let file = std::fs::File::create(path).map_err(|e| IbpError::Io {
         path: path.to_path_buf(),
         source: e,
     })?;
-    let writer = BufWriter::new(file);
+    let writer = std::io::BufWriter::new(file);
     encode_into(image, writer, format, settings, path)
 }
 
 /// Encode `image` to an in-memory `Vec<u8>` using the same per-format logic as
-/// [`write_to_path`]. `context_path` is only used for error reporting (typically
-/// the source file's path).
+/// [`write_to_path`]. `context_path` is only used for error reporting.
 pub fn to_bytes(
     image: &DynamicImage,
     format: ImageFormat,
@@ -91,13 +90,26 @@ pub fn to_bytes_target_size(
     let target_bytes = (kilobytes as usize).saturating_mul(1024);
     match format {
         ImageFormat::Jpeg => search_jpeg_for_target(image, target_bytes, context_path),
-        ImageFormat::Webp => Ok(search_webp_for_target(image, target_bytes)),
+        ImageFormat::Webp => {
+            #[cfg(feature = "lossy-webp")]
+            {
+                Ok(search_webp_for_target(image, target_bytes))
+            }
+            #[cfg(not(feature = "lossy-webp"))]
+            {
+                let _ = (image, target_bytes);
+                Err(IbpError::InvalidSettings(
+                    "WebP target-size encode requires the `lossy-webp` feature".into(),
+                ))
+            }
+        }
         _ => Err(IbpError::InvalidSettings(format!(
             "target file size requires JPEG or WebP output (got {format:?})"
         ))),
     }
 }
 
+#[cfg(feature = "fs")]
 pub fn write_to_path_target_size(
     image: &DynamicImage,
     path: &Path,
@@ -105,11 +117,11 @@ pub fn write_to_path_target_size(
     kilobytes: u32,
 ) -> IbpResult<()> {
     let bytes = to_bytes_target_size(image, format, kilobytes, path)?;
-    let file = File::create(path).map_err(|e| IbpError::Io {
+    let file = std::fs::File::create(path).map_err(|e| IbpError::Io {
         path: path.to_path_buf(),
         source: e,
     })?;
-    let mut writer = BufWriter::new(file);
+    let mut writer = std::io::BufWriter::new(file);
     writer.write_all(&bytes).map_err(|e| IbpError::Io {
         path: path.to_path_buf(),
         source: e,
@@ -175,6 +187,7 @@ fn search_jpeg_for_target(
     encode(1)
 }
 
+#[cfg(feature = "lossy-webp")]
 fn search_webp_for_target(image: &DynamicImage, target: usize) -> Vec<u8> {
     let has_alpha = image.color().has_alpha();
     let rgba = if has_alpha {
@@ -281,54 +294,81 @@ fn encode_png<W: Write>(image: &DynamicImage, writer: W, context_path: &Path) ->
 
 fn encode_webp<W: Write>(
     image: &DynamicImage,
-    mut writer: W,
+    writer: W,
     settings: &crate::Settings,
     context_path: &Path,
 ) -> IbpResult<()> {
     match settings.webp_quality {
-        Some(q) => {
-            let quality = q as f32;
-            let encoded = if image.color().has_alpha() {
-                let rgba = image.to_rgba8();
-                webp::Encoder::from_rgba(rgba.as_raw(), rgba.width(), rgba.height()).encode(quality)
-            } else {
-                let rgb = image.to_rgb8();
-                webp::Encoder::from_rgb(rgb.as_raw(), rgb.width(), rgb.height()).encode(quality)
-            };
-            writer.write_all(&encoded).map_err(|e| IbpError::Io {
+        Some(_q) => encode_webp_lossy(image, writer, settings, context_path),
+        None => encode_webp_lossless(image, writer, context_path),
+    }
+}
+
+#[cfg(feature = "lossy-webp")]
+fn encode_webp_lossy<W: Write>(
+    image: &DynamicImage,
+    mut writer: W,
+    settings: &crate::Settings,
+    context_path: &Path,
+) -> IbpResult<()> {
+    let quality = settings.webp_quality.unwrap_or(85) as f32;
+    let encoded = if image.color().has_alpha() {
+        let rgba = image.to_rgba8();
+        webp::Encoder::from_rgba(rgba.as_raw(), rgba.width(), rgba.height()).encode(quality)
+    } else {
+        let rgb = image.to_rgb8();
+        webp::Encoder::from_rgb(rgb.as_raw(), rgb.width(), rgb.height()).encode(quality)
+    };
+    writer.write_all(&encoded).map_err(|e| IbpError::Io {
+        path: context_path.to_path_buf(),
+        source: e,
+    })
+}
+
+#[cfg(not(feature = "lossy-webp"))]
+fn encode_webp_lossy<W: Write>(
+    _image: &DynamicImage,
+    _writer: W,
+    _settings: &crate::Settings,
+    context_path: &Path,
+) -> IbpResult<()> {
+    Err(IbpError::InvalidSettings(format!(
+        "lossy WebP encode for {} requires the `lossy-webp` feature",
+        context_path.display()
+    )))
+}
+
+fn encode_webp_lossless<W: Write>(
+    image: &DynamicImage,
+    writer: W,
+    context_path: &Path,
+) -> IbpResult<()> {
+    let encoder = WebPEncoder::new_lossless(writer);
+    if image.color().has_alpha() {
+        let rgba = image.to_rgba8();
+        encoder
+            .write_image(
+                rgba.as_raw(),
+                rgba.width(),
+                rgba.height(),
+                image::ExtendedColorType::Rgba8,
+            )
+            .map_err(|e| IbpError::Encode {
                 path: context_path.to_path_buf(),
                 source: e,
             })
-        }
-        None => {
-            let encoder = WebPEncoder::new_lossless(writer);
-            if image.color().has_alpha() {
-                let rgba = image.to_rgba8();
-                encoder
-                    .write_image(
-                        rgba.as_raw(),
-                        rgba.width(),
-                        rgba.height(),
-                        image::ExtendedColorType::Rgba8,
-                    )
-                    .map_err(|e| IbpError::Encode {
-                        path: context_path.to_path_buf(),
-                        source: e,
-                    })
-            } else {
-                let rgb = image.to_rgb8();
-                encoder
-                    .write_image(
-                        rgb.as_raw(),
-                        rgb.width(),
-                        rgb.height(),
-                        image::ExtendedColorType::Rgb8,
-                    )
-                    .map_err(|e| IbpError::Encode {
-                        path: context_path.to_path_buf(),
-                        source: e,
-                    })
-            }
-        }
+    } else {
+        let rgb = image.to_rgb8();
+        encoder
+            .write_image(
+                rgb.as_raw(),
+                rgb.width(),
+                rgb.height(),
+                image::ExtendedColorType::Rgb8,
+            )
+            .map_err(|e| IbpError::Encode {
+                path: context_path.to_path_buf(),
+                source: e,
+            })
     }
 }

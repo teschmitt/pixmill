@@ -1,7 +1,10 @@
 use std::path::{Path, PathBuf};
+
+#[cfg(feature = "fs")]
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use image::DynamicImage;
+#[cfg(feature = "fs")]
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +27,62 @@ pub struct ProgressUpdate {
     pub item: BatchItemResult,
 }
 
+/// Encoded preview bytes plus the dimensions they represent. Dimensions are taken
+/// from the post-ops `DynamicImage` so callers don't have to re-decode the bytes.
+#[derive(Debug, Clone)]
+pub struct PreviewBytes {
+    pub format: ImageFormat,
+    pub width: u32,
+    pub height: u32,
+    pub bytes: Vec<u8>,
+}
+
+/// Validate settings, decode `bytes`, apply EXIF orientation (from those same
+/// bytes), run all pipeline ops, and resolve the output format. The byte-side
+/// primitive that the FS [`prepare`] wrapper delegates to.
+pub fn prepare_bytes(
+    bytes: &[u8],
+    filename: &str,
+    settings: &Settings,
+) -> IbpResult<(DynamicImage, ImageFormat)> {
+    settings.validate()?;
+    let context_path = Path::new(filename);
+    let source_format = ImageFormat::from_extension(context_path);
+    let exif_orientation = if settings.preserve_exif {
+        crate::exif::read_orientation_from_bytes(bytes)
+    } else {
+        None
+    };
+    let image = decode::decode_bytes(bytes, source_format, context_path)?;
+    let image = ops::apply_all(image, settings, exif_orientation)?;
+    let out_format = encode::resolve_output_format(source_format, settings.output_format);
+    Ok((image, out_format))
+}
+
+/// Run the full pipeline in memory on `bytes` and return the encoded output.
+pub fn process_bytes(bytes: &[u8], filename: &str, settings: &Settings) -> IbpResult<PreviewBytes> {
+    let (image, format) = prepare_bytes(bytes, filename, settings)?;
+    let width = image.width();
+    let height = image.height();
+    let context_path = Path::new(filename);
+    let encoded = match settings.compression {
+        crate::settings::CompressionMode::TargetFileSize { kilobytes } => {
+            encode::to_bytes_target_size(&image, format, kilobytes, context_path)?
+        }
+        crate::settings::CompressionMode::Manual => {
+            encode::to_bytes(&image, format, settings, context_path)?
+        }
+    };
+    Ok(PreviewBytes {
+        format,
+        width,
+        height,
+        bytes: encoded,
+    })
+}
+
 /// Plan the output path for a source file. On collision, append `_1`, `_2`, ...
+#[cfg(feature = "fs")]
 pub fn plan_output_path(source: &Path, out_dir: &Path, ext: &str) -> PathBuf {
     let stem = source
         .file_stem()
@@ -42,24 +100,19 @@ pub fn plan_output_path(source: &Path, out_dir: &Path, ext: &str) -> PathBuf {
     candidate
 }
 
-/// Validate settings, decode the source, apply all pipeline ops, and resolve the
-/// output format. Shared by [`process_one`] (writes bytes to disk) and
-/// [`process_one_to_bytes`] (returns bytes in memory).
+/// Read `source` from disk and run [`prepare_bytes`] on its contents.
+#[cfg(feature = "fs")]
 pub fn prepare(source: &Path, settings: &Settings) -> IbpResult<(DynamicImage, ImageFormat)> {
-    settings.validate()?;
-    let exif_orientation = if settings.preserve_exif {
-        crate::exif::read_orientation(source)
-    } else {
-        None
-    };
-    let image = decode::decode(source)?;
-    let image = ops::apply_all(image, settings, exif_orientation)?;
-    let source_format = ImageFormat::from_extension(source);
-    let out_format = encode::resolve_output_format(source_format, settings.output_format);
-    Ok((image, out_format))
+    let bytes = std::fs::read(source).map_err(|e| crate::IbpError::Io {
+        path: source.to_path_buf(),
+        source: e,
+    })?;
+    let filename = source.to_string_lossy();
+    prepare_bytes(&bytes, &filename, settings)
 }
 
 /// Process a single file end-to-end, writing the result to `out_dir`.
+#[cfg(feature = "fs")]
 pub fn process_one(source: &Path, out_dir: &Path, settings: &Settings) -> IbpResult<PathBuf> {
     let (image, out_format) = prepare(source, settings)?;
     let out_path = plan_output_path(source, out_dir, out_format.extension());
@@ -74,43 +127,22 @@ pub fn process_one(source: &Path, out_dir: &Path, settings: &Settings) -> IbpRes
     Ok(out_path)
 }
 
-/// Encoded preview bytes plus the dimensions they represent. Dimensions are taken
-/// from the post-ops `DynamicImage` so callers don't have to re-decode the bytes.
-#[derive(Debug, Clone)]
-pub struct PreviewBytes {
-    pub format: ImageFormat,
-    pub width: u32,
-    pub height: u32,
-    pub bytes: Vec<u8>,
-}
-
-/// Run the full pipeline in memory and return the encoded output bytes plus the
-/// processed dimensions. Used for previews; the batch path still goes through
-/// [`process_one`] so its rayon workers can stream to disk without buffering.
+/// Read `source` from disk and run [`process_bytes`] on its contents.
+#[cfg(feature = "fs")]
 pub fn process_one_to_bytes(source: &Path, settings: &Settings) -> IbpResult<PreviewBytes> {
-    let (image, format) = prepare(source, settings)?;
-    let width = image.width();
-    let height = image.height();
-    let bytes = match settings.compression {
-        crate::settings::CompressionMode::TargetFileSize { kilobytes } => {
-            encode::to_bytes_target_size(&image, format, kilobytes, source)?
-        }
-        crate::settings::CompressionMode::Manual => {
-            encode::to_bytes(&image, format, settings, source)?
-        }
-    };
-    Ok(PreviewBytes {
-        format,
-        width,
-        height,
-        bytes,
-    })
+    let bytes = std::fs::read(source).map_err(|e| crate::IbpError::Io {
+        path: source.to_path_buf(),
+        source: e,
+    })?;
+    let filename = source.to_string_lossy();
+    process_bytes(&bytes, &filename, settings)
 }
 
 /// Process a list of files in parallel, calling `on_progress` after each one finishes.
 ///
 /// `on_progress` is called from worker threads. The total is fixed at the start, and
 /// `completed` is monotonically increasing.
+#[cfg(feature = "fs")]
 pub fn run_batch<F>(
     sources: &[PathBuf],
     out_dir: &Path,
@@ -161,7 +193,7 @@ where
         .collect()
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "fs"))]
 mod tests {
     use super::*;
     use std::fs;
