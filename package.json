@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "build:wasm": "wasm-pack build crates/pixmill-wasm --target web --out-dir ../../src/lib/wasm/pkg",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

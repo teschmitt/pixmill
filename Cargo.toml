@@ -1,6 +1,10 @@
 [workspace]
 resolver = "2"
-members = ["src-tauri", "crates/pixmill-core"]
+members = ["src-tauri", "crates/pixmill-core", "crates/pixmill-wasm"]
+# pixmill-wasm only builds for wasm32-unknown-unknown. Excluding it from the
+# default set keeps `cargo check` / `cargo build` from trying to compile it
+# for the host target, where js-sys / wasm-bindgen glue would fail to link.
+default-members = ["src-tauri", "crates/pixmill-core"]
 
 [workspace.package]
 version = "0.1.0"
