@@ -75,10 +75,12 @@
 
   <div class="layout">
     <section class="left">
-      <DropZone />
-      {#if platform.supportsWatchFolders}
-        <WatchFolders />
-      {/if}
+      <div class="top-row">
+        <DropZone />
+        {#if platform.supportsWatchFolders}
+          <WatchFolders />
+        {/if}
+      </div>
       <QueueList />
     </section>
     <aside class="right">
@@ -157,6 +159,16 @@
     padding: 16px;
     gap: 16px;
     min-height: 0;
+  }
+  .top-row {
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+    align-items: stretch;
+  }
+  .top-row > :global(*) {
+    flex: 1 1 0;
+    min-width: 0;
   }
   .right {
     display: flex;
