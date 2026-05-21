@@ -1,7 +1,0 @@
-# Cloudflare Pages config. The production build is driven by the Pages
-# dashboard (build command + output dir + branch settings), so this file
-# is only here to make `wrangler pages deploy` work from the CLI without
-# extra flags.
-name = "pixmill"
-compatibility_date = "2026-05-21"
-pages_build_output_dir = "build"

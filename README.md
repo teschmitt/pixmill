@@ -65,13 +65,14 @@ the `wasm32-unknown-unknown` target, and `wasm-pack` on `PATH`. Install with
 `github.com/WebAssembly/binaryen/releases` and caches it under
 `~/.cache/.wasm-pack/`.
 
-Deployment is wired to **Cloudflare Pages**. The build command is
-`scripts/cf-build.sh`, which installs Rust on demand and then runs
-`pnpm build:web`; output directory is `build/`. Headers (wasm MIME, immutable
-caching for fingerprinted assets) live in `static/_headers` and are copied to
-the build root by SvelteKit's static adapter. Pages produces a preview URL for
-every PR and non-production branch automatically — find them in the Pages
-dashboard or as commit-status checks on the PR.
+Deployment runs on **GitHub Pages** via
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Every push to
+`main` builds the wasm + frontend on GitHub Actions and publishes `build/`
+to Pages. PRs run the same build as a check but don't deploy — GH Pages
+hosts only one site per repo. The workflow sets `BASE_PATH=/<repo>` so
+SvelteKit's absolute URLs resolve under `https://<user>.github.io/<repo>/`;
+binding a custom domain lets you drop the prefix (set the workflow's
+`BASE_PATH` env to an empty string in that case).
 
 ## Architecture
 

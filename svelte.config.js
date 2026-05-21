@@ -12,6 +12,14 @@ const config = {
     adapter: adapter({
       fallback: "index.html",
     }),
+    // GitHub Pages serves the site at `<user>.github.io/<repo>/`, not
+    // the root. The deploy workflow sets BASE_PATH to `/<repo>` at
+    // build time so SvelteKit prefixes all absolute URLs (`/_app/...`,
+    // assets, etc.) correctly. Tauri and `pnpm dev` leave BASE_PATH
+    // unset → empty prefix → root-relative URLs.
+    paths: {
+      base: process.env.BASE_PATH ?? "",
+    },
   },
 };
 
