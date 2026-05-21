@@ -9,6 +9,13 @@ name = "pixmill_wasm"
 path = "src/lib.rs"
 crate-type = ["cdylib"]
 
+# Rust 1.82+ emits WebAssembly SIMD (v128.*) and bulk-memory ops by default for
+# wasm32-unknown-unknown. wasm-pack's bundled wasm-opt validates without those
+# features enabled and aborts with "SIMD operations require SIMD [--enable-simd]".
+# Pass the flags through so the optimizer accepts our binary.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ['-O', '--enable-simd', '--enable-bulk-memory', '--enable-nontrapping-float-to-int']
+
 [features]
 default = []
 # Install console_error_panic_hook on startup so wasm panics surface in the
