@@ -48,6 +48,31 @@ pnpm tauri build
 This produces a `.dmg` on macOS, a `.msi` on Windows, and `.AppImage` + `.deb`
 on Linux. Bundles land in `src-tauri/target/release/bundle/`.
 
+## Web build
+
+The same image pipeline runs in the browser as a SvelteKit SPA backed by a
+wasm-compiled `pixmill-core`. Output goes to a downloadable ZIP instead of a
+folder you pick.
+
+```sh
+pnpm build:wasm   # build pixmill-core into JS bindings via wasm-pack
+pnpm build:web    # build:wasm + VITE_PLATFORM=web vite build → ./build
+```
+
+`pnpm build:web` needs the Rust toolchain (pinned by `rust-toolchain.toml`),
+the `wasm32-unknown-unknown` target, and `wasm-pack` on `PATH`. Install with
+`cargo install wasm-pack`. The first wasm-pack run downloads `wasm-opt` from
+`github.com/WebAssembly/binaryen/releases` and caches it under
+`~/.cache/.wasm-pack/`.
+
+Deployment is wired to **Cloudflare Pages**. The build command is
+`scripts/cf-build.sh`, which installs Rust on demand and then runs
+`pnpm build:web`; output directory is `build/`. Headers (wasm MIME, immutable
+caching for fingerprinted assets) live in `static/_headers` and are copied to
+the build root by SvelteKit's static adapter. Pages produces a preview URL for
+every PR and non-production branch automatically — find them in the Pages
+dashboard or as commit-status checks on the PR.
+
 ## Architecture
 
 A small Tauri shell drives a Rust image-processing crate.
