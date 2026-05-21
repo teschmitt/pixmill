@@ -1,10 +1,5 @@
 <script lang="ts">
-  import {
-    previewOne,
-    loadSource,
-    type PreviewResult,
-    type SourceLoad,
-  } from "$lib/tauri/commands";
+  import { platform, type PreviewResult, type SourceLoad } from "$lib/platform";
   import { settings } from "$lib/stores/settings.svelte";
   import { formatBytes, formatDimensions } from "$lib/format";
   import type { QueueItem } from "$lib/types";
@@ -59,7 +54,8 @@
     sourceLoading = true;
     source = null;
     sourceError = null;
-    loadSource(item.path)
+    platform
+      .loadSource(item.path)
       .then((res) => {
         if (cancelled) return;
         source = res;
@@ -82,7 +78,8 @@
     preview = null;
     previewError = null;
     resetView();
-    previewOne(item.path, settings.current)
+    platform
+      .previewOne(item.path, settings.current)
       .then((res) => {
         if (cancelled) return;
         preview = res;

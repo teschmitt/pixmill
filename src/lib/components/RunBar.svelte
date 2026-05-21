@@ -1,8 +1,8 @@
 <script lang="ts">
+  import { platform } from "$lib/platform";
   import { batch } from "$lib/stores/batch.svelte";
   import { queue } from "$lib/stores/queue.svelte";
   import { settings } from "$lib/stores/settings.svelte";
-  import { pickOutputFolder, runBatch } from "$lib/tauri/commands";
 
   let canRun = $derived(
     !batch.running &&
@@ -12,7 +12,7 @@
   );
 
   async function chooseOutput() {
-    const dir = await pickOutputFolder();
+    const dir = await platform.pickOutputFolder();
     if (dir) settings.outputDir = dir;
   }
 
@@ -28,7 +28,7 @@
     }
 
     try {
-      await runBatch(
+      await platform.runBatch(
         targets.map((t) => t.path),
         outDir,
         settings.current,

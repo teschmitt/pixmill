@@ -1,5 +1,5 @@
+import { platform } from "$lib/platform";
 import { queue } from "$lib/stores/queue.svelte";
-import { makeThumbnail } from "$lib/tauri/commands";
 
 const THUMB_CONCURRENCY = 4;
 
@@ -15,7 +15,7 @@ export async function requestPendingThumbnails(): Promise<void> {
       const item = pending[cursor++];
       queue.update(item.id, { status: "thumbnailing" });
       try {
-        const dataUrl = await makeThumbnail(item.path);
+        const dataUrl = await platform.makeThumbnail(item.path);
         queue.update(item.id, {
           status: "ready",
           thumbnailDataUrl: dataUrl,

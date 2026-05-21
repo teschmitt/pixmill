@@ -30,6 +30,31 @@ export default ts.config(
     },
   },
   {
+    // Keep Tauri-specific APIs encapsulated behind src/lib/platform/tauri/**.
+    // Components and stores must depend on $lib/platform, not @tauri-apps/*
+    // directly, so the same codebase can build for web (W4+).
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@tauri-apps/*"],
+              message:
+                "Import Tauri APIs only inside src/lib/platform/tauri/**. Components should use $lib/platform.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/lib/platform/tauri/**"],
+    rules: {
+      "no-restricted-imports": "off",
+    },
+  },
+  {
     ignores: ["build/", ".svelte-kit/", "node_modules/", "src-tauri/", "target/"],
   }
 );

@@ -1,15 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
 
+  import { platform } from "$lib/platform";
   import { settings } from "$lib/stores/settings.svelte";
-  import { loadSettings, saveSettings } from "$lib/tauri/commands";
 
   let { children } = $props();
   let loaded = $state(false);
 
   onMount(async () => {
     try {
-      const state = await loadSettings();
+      const state = await platform.loadSettings();
       if (state) {
         settings.current = state.settings;
         settings.outputDir = state.outputDir;
@@ -29,7 +29,7 @@
       settings: $state.snapshot(settings.current),
       outputDir: settings.outputDir,
     };
-    void saveSettings(snapshot).catch((e) => console.warn("saveSettings failed:", e));
+    void platform.saveSettings(snapshot).catch((e) => console.warn("saveSettings failed:", e));
   });
 </script>
 

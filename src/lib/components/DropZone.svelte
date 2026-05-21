@@ -1,9 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { getCurrentWebview } from "@tauri-apps/api/webview";
 
+  import { platform } from "$lib/platform";
   import { queue } from "$lib/stores/queue.svelte";
-  import { ingestPaths, pickFiles, pickFolder } from "$lib/tauri/commands";
   import { requestPendingThumbnails } from "$lib/thumbnails";
   import type { QueueItem } from "$lib/types";
 
@@ -37,7 +36,7 @@
     if (paths.length === 0) return;
     busy = true;
     try {
-      const results = await ingestPaths(paths, recursive);
+      const results = await platform.ingest(paths, recursive);
       queue.add(results.map(toQueueItem));
     } finally {
       busy = false;
@@ -46,32 +45,25 @@
   }
 
   async function onAddFiles() {
-    const paths = await pickFiles();
+    const paths = await platform.pickFiles();
     await ingest(paths);
   }
 
   async function onAddFolder() {
-    const folder = await pickFolder();
+    const folder = await platform.pickFolder();
     if (folder) await ingest([folder]);
   }
 
-  onMount(() => {
-    const webview = getCurrentWebview();
-    const unlisten = webview.onDragDropEvent((event) => {
-      const p = event.payload;
-      if (p.type === "enter" || p.type === "over") {
-        dragging = true;
-      } else if (p.type === "leave") {
-        dragging = false;
-      } else if (p.type === "drop") {
-        dragging = false;
-        void ingest(p.paths);
-      }
-    });
-    return () => {
-      void unlisten.then((fn) => fn());
-    };
-  });
+  onMount(() =>
+    platform.setupDropHandler({
+      onDragging: (d) => {
+        dragging = d;
+      },
+      onDrop: (paths) => {
+        void ingest(paths);
+      },
+    })
+  );
 </script>
 
 <div class="drop" class:active={dragging}>
