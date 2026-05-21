@@ -1727,23 +1727,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibp-core"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "fast_image_resize",
- "image",
- "kamadak-exif",
- "libheif-rs",
- "rayon",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "walkdir",
- "webp",
-]
-
-[[package]]
 name = "ico"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1884,21 +1867,6 @@ dependencies = [
  "png 0.18.1",
  "zune-core",
  "zune-jpeg",
-]
-
-[[package]]
-name = "image-batch-processor"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "ibp-core",
- "image",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
 ]
 
 [[package]]
@@ -2812,6 +2780,38 @@ dependencies = [
  "atomic-waker",
  "fastrand",
  "futures-io",
+]
+
+[[package]]
+name = "pixmill"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "image",
+ "pixmill-core",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+]
+
+[[package]]
+name = "pixmill-core"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "fast_image_resize",
+ "image",
+ "kamadak-exif",
+ "libheif-rs",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "walkdir",
+ "webp",
 ]
 
 [[package]]

@@ -17,7 +17,7 @@ status live in `PLAN.md`. Read both before suggesting work.
 - **SvelteKit** with `adapter-static` (SPA mode, no SSR — Tauri has no Node runtime)
 - **Svelte 5 runes** — `$state`, `$derived`, `$effect`, `$props`. NOT the legacy `$store` syntax.
 - **Rust workspace** at the project root:
-  - `crates/ibp-core/` — image pipeline. No Tauri dependency. This is where logic lives and where tests live.
+  - `crates/pixmill-core/` — image pipeline. No Tauri dependency. This is where logic lives and where tests live.
   - `src-tauri/` — thin Tauri shell: IPC commands, persistence, plugin wiring.
 
 ## Commands
@@ -27,28 +27,28 @@ pnpm install            # first time + after pulling deps
 pnpm tauri dev          # run the desktop app
 pnpm check              # svelte-check (type-check the frontend)
 pnpm build              # build the static frontend (smoke test)
-cargo test -p ibp-core  # 19 image-pipeline tests
-cargo check -p ibp-core # fast type-check without GTK system libs
+cargo test -p pixmill-core  # 19 image-pipeline tests
+cargo check -p pixmill-core # fast type-check without GTK system libs
 pnpm tauri build        # production bundle
 ```
 
 ## Conventions
 
-- **All image processing goes in `crates/ibp-core/`**. The Tauri side calls it.
+- **All image processing goes in `crates/pixmill-core/`**. The Tauri side calls it.
   Don't put `image::` or `fast_image_resize::` calls in `src-tauri/`.
 - **Tauri commands are thin wrappers** in `src-tauri/src/commands.rs`. They convert
-  IPC types, call into `ibp_core::*`, and return. Heavy work goes through
+  IPC types, call into `pixmill_core::*`, and return. Heavy work goes through
   `tauri::async_runtime::spawn_blocking`.
 - **Streaming progress** uses `tauri::ipc::Channel<T>`, not events. See
   `commands::run_batch` and the JS `runBatch` wrapper for the pattern.
-- **Settings types are mirrored** between `crates/ibp-core/src/settings.rs` (Rust)
+- **Settings types are mirrored** between `crates/pixmill-core/src/settings.rs` (Rust)
   and `src/lib/types.ts` (TS). They must stay in sync. Both use `camelCase` on the
   wire — Rust enums are tagged via `#[serde(rename_all = "camelCase", tag = "kind")]`.
 - **Stores are Svelte 5 classes**, e.g. `class QueueStore { items = $state<...>([]) }`,
   exported as singletons. Files end in `.svelte.ts`. Use `store.items` directly
   — no `$store` prefix.
 - **Tests live with the code**: unit tests inline in `#[cfg(test)] mod tests`,
-  integration tests in `crates/ibp-core/tests/end_to_end.rs`. Add a test when
+  integration tests in `crates/pixmill-core/tests/end_to_end.rs`. Add a test when
   you add a new pipeline op; the bar is "does this produce the right output on
   a real fixture image?"
 
@@ -68,7 +68,7 @@ pnpm tauri build        # production bundle
 - **Linux dev needs GTK system libs**: `webkit2gtk-4.1-dev`, `librsvg2-dev`, etc.
   Building `src-tauri/` on a fresh Linux box without these will fail at pkg-config.
   In a sandbox without sudo this blocks `cargo check` on `src-tauri/`. Use
-  `cargo check -p ibp-core` for fast iteration instead.
+  `cargo check -p pixmill-core` for fast iteration instead.
 - **pnpm + multi-platform native bindings**: `pnpm-workspace.yaml` includes a
   `supportedArchitectures` block. Don't remove it — it's what makes the lockfile
   include darwin-arm64, win32-x64, etc. native bindings for `@tauri-apps/cli`
@@ -92,8 +92,8 @@ watch folder).
 ## When the user asks for a new feature
 
 1. Check `PLAN.md` first — it might already be in the v2 backlog with notes.
-2. Decide where it lives: a new op in `crates/ibp-core/src/ops/` (most likely),
+2. Decide where it lives: a new op in `crates/pixmill-core/src/ops/` (most likely),
    a Tauri command in `src-tauri/src/commands.rs`, or UI in `src/lib/components/`.
 3. If it touches `Settings`, update Rust _and_ TS together.
 4. Add a test in `tests/end_to_end.rs` using `write_red_png` / `tempdir` helpers.
-5. Frontend changes: run `pnpm check`. Pipeline changes: `cargo test -p ibp-core`.
+5. Frontend changes: run `pnpm check`. Pipeline changes: `cargo test -p pixmill-core`.

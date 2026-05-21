@@ -1,4 +1,4 @@
-# Image Batch Processor
+# Pixmill
 
 Drop a pile of photos, set resize / crop / rotate, hit Run. Cross-platform
 desktop app built with Tauri 2 and a Rust image pipeline — small binary, no
@@ -25,7 +25,7 @@ Requires **Rust 1.78+**, **Node 20+**, and **pnpm**.
 
 ```sh
 git clone <repo-url>
-cd image-batch-processor
+cd pixmill
 pnpm install
 pnpm tauri dev
 ```
@@ -53,14 +53,14 @@ on Linux. Bundles land in `src-tauri/target/release/bundle/`.
 A small Tauri shell drives a Rust image-processing crate.
 
 ```
-image-batch-processor/
-├── crates/ibp-core/          Rust image pipeline (testable, no Tauri deps)
+pixmill/
+├── crates/pixmill-core/      Rust image pipeline (testable, no Tauri deps)
 ├── src-tauri/                Tauri shell: IPC commands, persistence, dialogs
 └── src/                      SvelteKit frontend (SPA mode, Svelte 5 runes)
 ```
 
 The split means the pipeline can be unit-tested without spinning up a window.
-The Tauri side stays thin: it converts IPC types, calls into `ibp-core`, and
+The Tauri side stays thin: it converts IPC types, calls into `pixmill-core`, and
 streams progress back to the UI via `tauri::ipc::Channel`.
 
 ## Development
@@ -68,11 +68,11 @@ streams progress back to the UI via `tauri::ipc::Channel`.
 ```sh
 pnpm tauri dev            # run the app with hot reload
 pnpm check                # type-check the frontend
-cargo test -p ibp-core    # 21 image-pipeline tests
-cargo check -p ibp-core   # fast iteration without GTK system libs
+cargo test -p pixmill-core    # 21 image-pipeline tests
+cargo check -p pixmill-core   # fast iteration without GTK system libs
 ```
 
-The `ibp-core` integration tests synthesize real PNG fixtures and run them
+The `pixmill-core` integration tests synthesize real PNG fixtures and run them
 through the full pipeline, so they cover ingest, metadata, decode, resize,
 crop, rotate, EXIF orientation, encode, and parallel batch execution end-to-end.
 
@@ -83,7 +83,7 @@ yet. They're gated behind Cargo features:
 
 | Platform | Install                                     | Then build with                                                       |
 | -------- | ------------------------------------------- | --------------------------------------------------------------------- |
-| macOS    | `brew install dav1d libheif`                | `pnpm tauri build -- --features "ibp-core/avif-decode ibp-core/heic"` |
+| macOS    | `brew install dav1d libheif`                | `pnpm tauri build -- --features "pixmill-core/avif-decode pixmill-core/heic"` |
 | Linux    | `sudo apt install libdav1d-dev libheif-dev` | same as above                                                         |
 | Windows  | `vcpkg install dav1d libheif`               | same as above                                                         |
 

@@ -1,10 +1,10 @@
 [package]
-name = "ibp-core"
+name = "pixmill-core"
 version.workspace = true
 edition.workspace = true
 
 [lib]
-name = "ibp_core"
+name = "pixmill_core"
 path = "src/lib.rs"
 
 [features]

@@ -1,7 +1,7 @@
 {
   "statusLine": {
     "type": "command",
-    "command": "bash /Users/thomas.schmitt/dev/agentic-coding-foundation/image-batch-processor/.claude/statusline-command.sh"
+    "command": "bash /Users/thomas.schmitt/dev/agentic-coding-foundation/pixmill/.claude/statusline-command.sh"
   },
   "hooks": {
     "Stop": [
@@ -9,7 +9,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /Users/thomas.schmitt/dev/agentic-coding-foundation/image-batch-processor/.claude/hooks/quality-check.sh",
+            "command": "bash /Users/thomas.schmitt/dev/agentic-coding-foundation/pixmill/.claude/hooks/quality-check.sh",
             "timeout": 300,
             "statusMessage": "Running make check (fmt, lint, type-check, tests)..."
           }

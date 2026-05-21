@@ -10,7 +10,7 @@
 
 <main class="app">
   <header class="topbar">
-    <h1>Image Batch Processor</h1>
+    <h1>Pixmill</h1>
     <div class="muted">{queue.items.length} files queued</div>
   </header>
 

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use image::{DynamicImage, ImageFormat, RgbImage};
 
-use ibp_core::{ingest, metadata, ops, pipeline, settings, thumbnail, Settings};
+use pixmill_core::{ingest, metadata, ops, pipeline, settings, thumbnail, Settings};
 
 fn tempdir(label: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!(
@@ -36,7 +36,7 @@ fn reads_metadata_for_real_png() {
     let dir = tempdir("meta");
     let path = write_red_png(&dir, "red.png", 100, 60);
     let meta = metadata::read(&path);
-    assert_eq!(meta.format, Some(ibp_core::ImageFormat::Png));
+    assert_eq!(meta.format, Some(pixmill_core::ImageFormat::Png));
     assert_eq!(meta.width, Some(100));
     assert_eq!(meta.height, Some(60));
     assert!(meta.size_bytes.unwrap() > 0);
@@ -342,7 +342,7 @@ fn process_one_to_bytes_returns_resized_jpeg() {
     s.jpeg_quality = Some(80);
 
     let preview = pipeline::process_one_to_bytes(&src, &s).expect("preview produces bytes");
-    assert_eq!(preview.format, ibp_core::ImageFormat::Jpeg);
+    assert_eq!(preview.format, pixmill_core::ImageFormat::Jpeg);
     // JPEG SOI marker.
     assert_eq!(&preview.bytes[0..2], &[0xFF, 0xD8]);
 

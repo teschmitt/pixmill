@@ -1689,7 +1689,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "image-batch-processor"
+name = "pixmill"
 version = "0.1.0"
 dependencies = [
  "serde",

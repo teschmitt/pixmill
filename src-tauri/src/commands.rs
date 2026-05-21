@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use ibp_core::{
+use pixmill_core::{
     ingest, metadata,
     pipeline::{self, BatchItemResult, ProgressUpdate},
     thumbnail, ImageFormat, ImageMetadata, Settings,
@@ -77,7 +77,7 @@ pub struct PreviewResult {
 /// Full-resolution source loaded for the preview modal. Webview-native formats
 /// (JPEG/PNG/WebP) are returned as their raw bytes in a data URL so the webview's
 /// own decoder handles orientation. Other formats (AVIF/HEIC) are decoded via
-/// ibp-core, oriented, and re-encoded as PNG so the webview can display them at all.
+/// pixmill-core, oriented, and re-encoded as PNG so the webview can display them at all.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceLoad {
@@ -95,7 +95,7 @@ pub async fn load_source(path: String) -> Result<SourceLoad, String> {
 }
 
 fn load_source_blocking(source: &Path) -> Result<SourceLoad, String> {
-    let format = ibp_core::ImageFormat::from_extension(source);
+    let format = pixmill_core::ImageFormat::from_extension(source);
     match format {
         // Webview-native: pass raw bytes through. The webview decoder applies EXIF
         // orientation, so naturalWidth/Height on the <img> will be post-orientation.
@@ -113,12 +113,12 @@ fn load_source_blocking(source: &Path) -> Result<SourceLoad, String> {
         // AVIF/HEIC (with the respective Cargo features) or anything else: decode,
         // bake in EXIF orientation, re-encode as PNG so the webview can display it.
         _ => {
-            let img = ibp_core::decode::decode(source).map_err(|e| e.to_string())?;
-            let img = match ibp_core::exif::read_orientation(source) {
-                Some(o) => ibp_core::ops::orient::apply(img, o),
+            let img = pixmill_core::decode::decode(source).map_err(|e| e.to_string())?;
+            let img = match pixmill_core::exif::read_orientation(source) {
+                Some(o) => pixmill_core::ops::orient::apply(img, o),
                 None => img,
             };
-            let bytes = ibp_core::encode::to_bytes(
+            let bytes = pixmill_core::encode::to_bytes(
                 &img,
                 ImageFormat::Png,
                 &Settings::default(),

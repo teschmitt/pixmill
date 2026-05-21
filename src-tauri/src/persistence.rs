@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use ibp_core::Settings;
+use pixmill_core::Settings;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 

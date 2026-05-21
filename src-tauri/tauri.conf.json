@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Image Batch Processor",
+  "productName": "Pixmill",
   "version": "0.1.0",
-  "identifier": "com.thomasschmitt.imagebatchprocessor",
+  "identifier": "com.thomasschmitt.pixmill",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Image Batch Processor",
+        "title": "Pixmill",
         "width": 1100,
         "height": 720,
         "minWidth": 800,
@@ -36,6 +36,6 @@
     ],
     "category": "Photography",
     "shortDescription": "Batch resize, crop and rotate images",
-    "longDescription": "A cross-platform image batch processor: drag and drop photos, resize/crop/rotate them in parallel, and write results to an output folder. Supports JPEG, PNG and WebP; AVIF/HEIC inputs require optional system libraries (dav1d, libheif)."
+    "longDescription": "Pixmill: a cross-platform batch image processor. Drag and drop photos, resize/crop/rotate them in parallel, and write results to an output folder. Supports JPEG, PNG and WebP; AVIF/HEIC inputs require optional system libraries (dav1d, libheif)."
   }
 }

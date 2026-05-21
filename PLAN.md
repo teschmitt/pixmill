@@ -1,6 +1,6 @@
 # PLAN.md
 
-Current development plan and backlog for Image Batch Processor.
+Current development plan and backlog for Pixmill.
 
 ## Status
 
@@ -9,14 +9,14 @@ Target-file-size compression (binary-search on encoder quality) shipped as
 `CompressionMode::TargetFileSize` — a separate enum from `ResizeMode`, since
 it's an encoder concern, not a pixel-resize one. Side-by-side preview modal
 ships next: click a thumbnail to see source vs. processed-with-current-settings.
-27 tests pass in `ibp-core`. Frontend type-checks clean. Smoke-tested on macOS
+27 tests pass in `pixmill-core`. Frontend type-checks clean. Smoke-tested on macOS
 2026-05-20 — golden path (queue, settings persistence, batch run) works.
 
 ## Phases (all complete)
 
 | #   | Phase                                             | Notes                                       |
 | --- | ------------------------------------------------- | ------------------------------------------- |
-| 1   | Scaffold Tauri 2 + SvelteKit + workspace          | `image-batch-processor/`                    |
+| 1   | Scaffold Tauri 2 + SvelteKit + workspace          | `pixmill/`                                  |
 | 2   | File ingestion (drag-drop, file/folder pickers)   | recursive folder option                     |
 | 3   | Rust decode + thumbnail generation                | base64 data: URLs over IPC                  |
 | 4   | Thumbnail grid UI                                 | CSS grid, hover-to-remove, status badges    |
@@ -65,13 +65,13 @@ Roughly in suggested implementation order, easiest/highest-value first.
 ### Smoke-test AVIF/HEIC on Mac
 
 - **Pre-req**: `brew install dav1d libheif`
-- Build with `--features "ibp-core/avif-decode ibp-core/heic"`
+- Build with `--features "pixmill-core/avif-decode pixmill-core/heic"`
 - Drop a HEIC from iPhone Photos, verify it converts to JPEG output.
 
 ## Known minor cleanups
 
-- `image-batch-processor` window title currently uses kebab-case in
-  `tauri.conf.json` — fine, but could be "Image Batch Processor" once branded.
+- Window title and `productName` in `tauri.conf.json` are now "Pixmill"
+  (branded 2026-05-21). Earlier kebab-case placeholder is gone.
 - `src/lib/components/QueueList.svelte` is misnamed — it renders a grid now,
   not a list. Rename to `ThumbnailGrid.svelte`.
 - `src-tauri/Cargo.toml` still has `authors = ["you"]` from the template.

@@ -7,8 +7,8 @@ help:
 	@echo "  lint           ESLint + Cargo clippy"
 	@echo "  fmt            Auto-format frontend (Prettier) and Rust (cargo fmt)"
 	@echo "  fmt-check      Check formatting without modifying files"
-	@echo "  type-check     svelte-check + cargo check -p ibp-core"
-	@echo "  test           cargo test -p ibp-core"
+	@echo "  type-check     svelte-check + cargo check -p pixmill-core"
+	@echo "  test           cargo test -p pixmill-core"
 	@echo "  dev            pnpm tauri dev"
 	@echo "  build          pnpm tauri build (release bundle)"
 	@echo "  build-frontend pnpm build (static frontend only)"
@@ -29,10 +29,10 @@ fmt-check:
 
 type-check:
 	pnpm check
-	cargo check -p ibp-core
+	cargo check -p pixmill-core
 
 test:
-	cargo test -p ibp-core
+	cargo test -p pixmill-core
 
 dev:
 	pnpm tauri dev
