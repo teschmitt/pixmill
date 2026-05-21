@@ -1,15 +1,17 @@
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use pixmill_core::{
     ingest, metadata,
     pipeline::{self, BatchItemResult, ProgressUpdate},
-    thumbnail, ImageFormat, ImageMetadata, Settings,
+    thumbnail, ImageFormat, ImageMetadata, Settings, WatchedFolder,
 };
 use serde::{Deserialize, Serialize};
-use tauri::{ipc::Channel, AppHandle};
+use tauri::{ipc::Channel, AppHandle, State};
 
 use crate::persistence::{self, PersistedState};
+use crate::watch::{WatchEvent, WatchManager};
 
 /// Expand a list of dropped/picked paths: directories are walked (recursively if requested)
 /// and the union is filtered down to supported image extensions. Then dimensions and sizes
@@ -200,4 +202,130 @@ fn dedupe_keep_order(paths: Vec<PathBuf>) -> Vec<PathBuf> {
         }
     }
     out
+}
+
+// ─── Watch-folder commands ─────────────────────────────────────────────────
+
+fn current_output_dir(app: &AppHandle) -> Option<PathBuf> {
+    persistence::load(app)
+        .ok()
+        .flatten()
+        .and_then(|state| state.output_dir)
+}
+
+fn upsert_persisted_state<F>(app: &AppHandle, mutate: F) -> Result<(), String>
+where
+    F: FnOnce(&mut PersistedState),
+{
+    let mut state = persistence::load(app)?.unwrap_or(PersistedState {
+        settings: Settings::default(),
+        output_dir: None,
+        watched_folders: Vec::new(),
+    });
+    mutate(&mut state);
+    persistence::save(app, &state)
+}
+
+#[tauri::command]
+pub fn add_watched_folder(
+    app: AppHandle,
+    manager: State<'_, Mutex<WatchManager>>,
+    folder: WatchedFolder,
+) -> Result<(), String> {
+    let output_dir = current_output_dir(&app);
+    {
+        let mut mgr = manager.lock().map_err(|e| e.to_string())?;
+        mgr.add(folder.clone(), output_dir.as_deref())
+            .map_err(|e| e.to_string())?;
+    }
+    upsert_persisted_state(&app, |state| {
+        if let Some(existing) = state
+            .watched_folders
+            .iter_mut()
+            .find(|f| f.path == folder.path)
+        {
+            *existing = folder;
+        } else {
+            state.watched_folders.push(folder);
+        }
+    })?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn remove_watched_folder(
+    app: AppHandle,
+    manager: State<'_, Mutex<WatchManager>>,
+    path: String,
+) -> Result<(), String> {
+    let target = PathBuf::from(&path);
+    {
+        let mut mgr = manager.lock().map_err(|e| e.to_string())?;
+        mgr.remove(&target);
+    }
+    upsert_persisted_state(&app, |state| {
+        state.watched_folders.retain(|f| f.path != target);
+    })?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_watched_folder_config(
+    app: AppHandle,
+    manager: State<'_, Mutex<WatchManager>>,
+    path: String,
+    recursive: bool,
+    auto_process: bool,
+) -> Result<(), String> {
+    let target = PathBuf::from(&path);
+    let output_dir = current_output_dir(&app);
+    {
+        let mut mgr = manager.lock().map_err(|e| e.to_string())?;
+        mgr.set_config(&target, recursive, auto_process, output_dir.as_deref())
+            .map_err(|e| e.to_string())?;
+    }
+    upsert_persisted_state(&app, |state| {
+        if let Some(f) = state.watched_folders.iter_mut().find(|f| f.path == target) {
+            f.recursive = recursive;
+            f.auto_process = auto_process;
+        }
+    })?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn validate_output_dir(
+    manager: State<'_, Mutex<WatchManager>>,
+    path: String,
+) -> Result<(), String> {
+    let target = PathBuf::from(path);
+    let mgr = manager.lock().map_err(|e| e.to_string())?;
+    mgr.validate_output_dir(&target).map_err(|e| e.to_string())
+}
+
+/// Install or replace the streaming channel the watcher thread writes to.
+/// First call also boots the debouncer and attaches every persisted folder;
+/// subsequent calls just swap the sink so HMR resubscribes work cleanly.
+#[tauri::command]
+pub fn subscribe_watch_events(
+    manager: State<'_, Mutex<WatchManager>>,
+    channel: Channel<WatchEvent>,
+) -> Result<(), String> {
+    let mut mgr = manager.lock().map_err(|e| e.to_string())?;
+    mgr.subscribe(channel)
+}
+
+/// Manually re-attach the OS-level watch for one folder. The success/failure
+/// result lands via a `FolderStatus` event, not the return value (which only
+/// signals "command accepted"). Used by the per-row "Retry now" button; the
+/// 30s polling task uses `WatchManager::retry_folder` directly.
+#[tauri::command]
+pub fn retry_watched_folder(
+    manager: State<'_, Mutex<WatchManager>>,
+    path: String,
+) -> Result<(), String> {
+    let target = PathBuf::from(&path);
+    let mut mgr = manager.lock().map_err(|e| e.to_string())?;
+    mgr.retry_folder(&target);
+    Ok(())
 }

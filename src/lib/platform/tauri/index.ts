@@ -1,7 +1,7 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
-import type { BatchItemResult, Settings } from "$lib/types";
+import type { BatchItemResult, Settings, WatchedFolder, WatchEvent } from "$lib/types";
 
 import type {
   PersistedState,
@@ -82,6 +82,39 @@ async function runBatch(
   });
 }
 
+async function addWatchedFolder(folder: WatchedFolder): Promise<void> {
+  await invoke<void>("add_watched_folder", { folder });
+}
+
+async function removeWatchedFolder(path: string): Promise<void> {
+  await invoke<void>("remove_watched_folder", { path });
+}
+
+async function setWatchedFolderConfig(
+  path: string,
+  recursive: boolean,
+  autoProcess: boolean
+): Promise<void> {
+  await invoke<void>("set_watched_folder_config", { path, recursive, autoProcess });
+}
+
+async function validateOutputDir(path: string): Promise<void> {
+  await invoke<void>("validate_output_dir", { path });
+}
+
+async function subscribeWatchEvents(handler: (event: WatchEvent) => void): Promise<void> {
+  // One persistent channel per page load. Calling `subscribe_watch_events`
+  // again (e.g. on Vite HMR) just swaps the sink server-side; the previous
+  // channel goes idle once its JS reference is dropped.
+  const channel = new Channel<WatchEvent>();
+  channel.onmessage = handler;
+  await invoke<void>("subscribe_watch_events", { channel });
+}
+
+async function retryWatchedFolder(path: string): Promise<void> {
+  await invoke<void>("retry_watched_folder", { path });
+}
+
 export const platform: Platform = {
   ingest,
   readMetadata,
@@ -95,4 +128,11 @@ export const platform: Platform = {
   loadSource,
   runBatch,
   setupDropHandler,
+  supportsWatchFolders: true,
+  addWatchedFolder,
+  removeWatchedFolder,
+  setWatchedFolderConfig,
+  validateOutputDir,
+  subscribeWatchEvents,
+  retryWatchedFolder,
 };

@@ -27,6 +27,7 @@ ships next: click a thumbnail to see source vs. processed-with-current-settings.
 | 9   | Progress UI + error handling                      | per-file + overall                          |
 | 10  | Sticky settings persistence                       | JSON in `app_config_dir`                    |
 | 11  | Cross-platform packaging                          | `tauri.conf.json` configured                |
+| 12  | Watch folder (live filesystem ingest)             | notify-debouncer-full; auto-process via JS burst coalescer; modify-aware + 30s retry |
 
 ## V2 backlog
 
@@ -48,13 +49,6 @@ Roughly in suggested implementation order, easiest/highest-value first.
 - **How**: Use the `little_exif` crate (purpose-built) to read EXIF from source,
   set Orientation to 1 (since pixels are already oriented), inject the modified
   blob as an APP1 segment in the output JPEG. WebP has an EXIF chunk too.
-
-### Watch folder (deferred from MVP)
-
-- **Why**: User wanted it but accepted v2 deferral.
-- **How**: `notify = "6"` crate, watch a directory, debounce events ~500ms,
-  feed new file paths into `ingest_paths`. UI: an "Add watch folder" button
-  that toggles per-folder. Background task lives in `src-tauri/`.
 
 ### Named presets
 

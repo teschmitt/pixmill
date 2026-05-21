@@ -1,4 +1,10 @@
-import type { BatchItemResult, ImageFormat, Settings } from "$lib/types";
+import type {
+  BatchItemResult,
+  ImageFormat,
+  Settings,
+  WatchedFolder,
+  WatchEvent,
+} from "$lib/types";
 
 export interface RawMetadata {
   path: string;
@@ -19,6 +25,7 @@ export interface ProgressUpdate {
 export interface PersistedState {
   settings: Settings;
   outputDir: string | null;
+  watchedFolders?: WatchedFolder[];
 }
 
 export interface PreviewResult {
@@ -70,4 +77,21 @@ export interface Platform {
   ): Promise<BatchItemResult[]>;
 
   setupDropHandler(handlers: DropHandlers): () => void;
+
+  // ─── Watch folders ──────────────────────────────────────────────────────
+  // `supportsWatchFolders` is the capability flag the UI checks before
+  // rendering anything watch-related. The web build sets it to `false` and
+  // the watch methods all throw — they're never called because the UI is
+  // hidden, but the contract is explicit so the type-checker stays happy.
+  supportsWatchFolders: boolean;
+  addWatchedFolder(folder: WatchedFolder): Promise<void>;
+  removeWatchedFolder(path: string): Promise<void>;
+  setWatchedFolderConfig(
+    path: string,
+    recursive: boolean,
+    autoProcess: boolean
+  ): Promise<void>;
+  validateOutputDir(path: string): Promise<void>;
+  subscribeWatchEvents(handler: (event: WatchEvent) => void): Promise<void>;
+  retryWatchedFolder(path: string): Promise<void>;
 }

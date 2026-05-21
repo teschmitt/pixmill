@@ -2,35 +2,13 @@
   import { onMount } from "svelte";
 
   import { platform } from "$lib/platform";
+  import { toQueueItem } from "$lib/queueItem";
   import { queue } from "$lib/stores/queue.svelte";
   import { requestPendingThumbnails } from "$lib/thumbnails";
-  import type { QueueItem } from "$lib/types";
 
   let recursive = $state(true);
   let busy = $state(false);
   let dragging = $state(false);
-
-  function toQueueItem(raw: {
-    path: string;
-    filename: string;
-    format: string | null;
-    width: number | null;
-    height: number | null;
-    sizeBytes: number | null;
-    error: string | null;
-  }): QueueItem {
-    return {
-      id: raw.path,
-      path: raw.path,
-      filename: raw.filename,
-      format: (raw.format as QueueItem["format"]) ?? null,
-      width: raw.width ?? undefined,
-      height: raw.height ?? undefined,
-      sizeBytes: raw.sizeBytes ?? undefined,
-      status: raw.error ? "error" : "pending",
-      error: raw.error ?? undefined,
-    };
-  }
 
   async function ingest(paths: string[]) {
     if (paths.length === 0) return;

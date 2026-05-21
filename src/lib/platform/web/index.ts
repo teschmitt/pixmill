@@ -10,7 +10,7 @@
  */
 import * as Comlink from "comlink";
 
-import type { BatchItemResult, Settings } from "$lib/types";
+import type { BatchItemResult, Settings, WatchedFolder, WatchEvent } from "$lib/types";
 
 import type {
   DropHandlers,
@@ -227,6 +227,35 @@ function bytesToDataUrl(bytes: Uint8Array, mime: string): string {
   return `data:${mime};base64,${btoa(binary)}`;
 }
 
+function notSupported(): never {
+  throw new Error("Watch folders are not supported in the web build");
+}
+
+async function addWatchedFolder(_folder: WatchedFolder): Promise<void> {
+  notSupported();
+}
+async function removeWatchedFolder(_path: string): Promise<void> {
+  notSupported();
+}
+async function setWatchedFolderConfig(
+  _path: string,
+  _recursive: boolean,
+  _autoProcess: boolean
+): Promise<void> {
+  notSupported();
+}
+async function validateOutputDir(_path: string): Promise<void> {
+  notSupported();
+}
+async function subscribeWatchEvents(
+  _handler: (event: WatchEvent) => void
+): Promise<void> {
+  notSupported();
+}
+async function retryWatchedFolder(_path: string): Promise<void> {
+  notSupported();
+}
+
 export const platform: Platform = {
   ingest,
   readMetadata,
@@ -240,4 +269,11 @@ export const platform: Platform = {
   loadSource,
   runBatch,
   setupDropHandler,
+  supportsWatchFolders: false,
+  addWatchedFolder,
+  removeWatchedFolder,
+  setWatchedFolderConfig,
+  validateOutputDir,
+  subscribeWatchEvents,
+  retryWatchedFolder,
 };

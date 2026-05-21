@@ -79,6 +79,50 @@ pnpm tauri build        # production bundle
 - **The `image` crate types**: a `DynamicImage` is the right working type. Pixel
   type detection for `fast_image_resize` uses `DynamicImage::pixel_type()` from
   the `IntoImageView` trait — that trait must be in scope at the call site.
+- **Watch folders** (Tauri only — `platform.supportsWatchFolders` is false on
+  web):
+  - Backend lives in `src-tauri/src/watch.rs`. One `WatchManager` owns a
+    `notify-debouncer-full` debouncer at a fixed 500ms timeout. New
+    `WatchedFolder { path, recursive, autoProcess }` registrations call
+    `debouncer.watcher().watch(&path, RecursiveMode::Recursive | NonRecursive)`.
+    Persisted folders are seeded into the manager from `lib.rs`'s setup hook
+    BEFORE the JS side calls `subscribe_watch_events`, so the very first
+    subscribe attaches them all.
+  - Events emitted to JS via a long-lived `Channel<WatchEvent>` (tagged enum:
+    `fileAdded { folder, item }`, `fileRemoved { folder, path }`,
+    `folderStatus { folder, status }`). Each subscribe replaces the channel.
+    Backend tests stand in an `mpsc::Sender` via the public `EventSink` trait
+    in `watch.rs`.
+  - Overlap guard: `is_path_overlap(a, b)` is true iff one path is an ancestor
+    (or equal) of the other, after `canonicalize` with lexical fallback for
+    non-existent paths. Enforced at both `add_watched_folder` and
+    `validate_output_dir` (called by the output-dir picker).
+  - JS-side burst coalescer in `src/lib/autoBurstCoalescer.ts` batches
+    `fileAdded` events per folder when `autoProcess` is on. Caps:
+    `QUIET_MS=250` (reset on each push), `SIZE_CAP=50`, `AGE_MS=10_000`. A
+    second burst on the same folder while one is in flight is deferred into
+    `bucket.pending` and dispatched after the first resolves (B2 serialize).
+  - Per-folder progress lives on `WatchedFolderUi.batchInFlight` and is owned
+    by `processBurst.svelte.ts` (note the `.svelte.ts` extension — it uses
+    `$state.snapshot`, so the file needs the Svelte compiler). It deliberately
+    does NOT touch the global `batch` store, so a manual "Run batch" via
+    `RunBar` and an auto-process burst never collide.
+  - Modify-aware (Phase 4): `Modify(ModifyKind::Data(_))` is classified as
+    `Added` so an in-place edit re-emits `FileAdded` for the same path. The
+    JS `handleWatchEvent` in `src/routes/+page.svelte` then disambiguates:
+    new path → enqueue; `done`/`error` → flip back to `pending`;
+    `pending`/`processing` → no-op.
+  - Recovery (Phase 4): `lib.rs` spawns a 30s `std::thread` polling task that
+    snapshots `WatchManager::error_folders()` and calls
+    `WatchManager::retry_folder(path)` for each. The same `retry_folder`
+    method backs the `retry_watched_folder` command, exposed to the UI as a
+    "Retry now" button on rows whose status is `error`. The button has a 2s
+    cooldown to prevent spam while notify is busy attaching.
+  - Pin: `notify-debouncer-full = "0.5"`. API quirk: call `watch`/`unwatch`
+    directly on `&mut Debouncer` — `Debouncer::watcher()` is deprecated and
+    now returns `()`, so older snippets like `debouncer.watcher().watch(...)`
+    won't compile. `ErrorKind::MaxFilesWatch` is the variant for the Linux
+    inotify exhaustion case.
 
 ## What's "done" vs what's not
 

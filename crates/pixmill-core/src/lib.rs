@@ -16,4 +16,6 @@ pub use formats::ImageFormat;
 pub use metadata::ImageMetadata;
 #[cfg(feature = "fs")]
 pub use metadata::{read as read_metadata, read_many as read_metadata_many};
-pub use settings::{CompressionMode, CropMode, OutputFormat, ResizeMode, RotateMode, Settings};
+pub use settings::{
+    CompressionMode, CropMode, OutputFormat, ResizeMode, RotateMode, Settings, WatchedFolder,
+};

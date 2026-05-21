@@ -67,3 +67,33 @@ export interface BatchItemResult {
   destination: string | null;
   error: string | null;
 }
+
+// ─── Watch folders ────────────────────────────────────────────────────────
+
+export interface WatchedFolder {
+  path: string;
+  recursive: boolean;
+  autoProcess: boolean;
+}
+
+export type WatchFolderStatus =
+  | { kind: "watching" }
+  | { kind: "paused" }
+  | { kind: "error"; message: string };
+
+export type WatchEvent =
+  | {
+      kind: "fileAdded";
+      folder: string;
+      item: {
+        path: string;
+        filename: string;
+        format: ImageFormat | null;
+        width: number | null;
+        height: number | null;
+        sizeBytes: number | null;
+        error: string | null;
+      };
+    }
+  | { kind: "fileRemoved"; folder: string; path: string }
+  | { kind: "folderStatus"; folder: string; status: WatchFolderStatus };

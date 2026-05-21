@@ -1,11 +1,70 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+
+  import { autoBurstCoalescer } from "$lib/autoBurstCoalescer";
   import DropZone from "$lib/components/DropZone.svelte";
-  import QueueList from "$lib/components/QueueList.svelte";
-  import SettingsPanel from "$lib/components/SettingsPanel.svelte";
-  import RunBar from "$lib/components/RunBar.svelte";
   import PreviewModal from "$lib/components/PreviewModal.svelte";
-  import { queue } from "$lib/stores/queue.svelte";
+  import QueueList from "$lib/components/QueueList.svelte";
+  import RunBar from "$lib/components/RunBar.svelte";
+  import SettingsPanel from "$lib/components/SettingsPanel.svelte";
+  import WatchFolders from "$lib/components/WatchFolders.svelte";
+  import { platform } from "$lib/platform";
+  import { toQueueItem } from "$lib/queueItem";
   import { preview } from "$lib/stores/preview.svelte";
+  import { queue } from "$lib/stores/queue.svelte";
+  import { watchFolders } from "$lib/stores/watchFolders.svelte";
+  import { requestPendingThumbnails } from "$lib/thumbnails";
+  import type { WatchEvent } from "$lib/types";
+
+  function handleWatchEvent(event: WatchEvent) {
+    if (event.kind === "fileAdded") {
+      // Phase 4 modify-aware (decision #12): the backend emits the same
+      // FileAdded variant for Create / Rename(To) / Modify(Data). We
+      // disambiguate by inspecting the current queue status.
+      const existing = queue.items.find((i) => i.path === event.item.path);
+      const folder = watchFolders.folders.find((f) => f.path === event.folder);
+      if (!existing) {
+        // New file — Phase 3 behavior: enqueue and (if autoProcess) coalesce.
+        queue.add([toQueueItem(event.item)]);
+        watchFolders.applyEvent(event);
+        void requestPendingThumbnails();
+        if (folder?.autoProcess) {
+          autoBurstCoalescer.push(event.folder, event.item.path);
+        }
+      } else if (existing.status === "done" || existing.status === "error") {
+        // In-place edit of a previously-processed file. Flip back to pending
+        // (clearing the stale destination/error) and re-feed the coalescer
+        // for autoProcess folders.
+        queue.update(existing.id, {
+          status: "pending",
+          error: undefined,
+          destination: undefined,
+        });
+        watchFolders.applyEvent(event);
+        if (folder?.autoProcess) {
+          autoBurstCoalescer.push(event.folder, event.item.path);
+        }
+      }
+      // `pending` / `processing` → no-op: the item is already in line for
+      // processing, so duplicating work would be wasted.
+    } else if (event.kind === "fileRemoved") {
+      // Stale-pending cleanup (decision #14): drop only `pending` rows.
+      // `processing` / `done` / `error` rows survive so the historical
+      // record is preserved when a user moves processed files around.
+      const item = queue.items.find((i) => i.path === event.path);
+      if (item && item.status === "pending") queue.remove(item.id);
+    } else if (event.kind === "folderStatus") {
+      watchFolders.applyEvent(event);
+    }
+  }
+
+  onMount(() => {
+    if (platform.supportsWatchFolders) {
+      void platform
+        .subscribeWatchEvents(handleWatchEvent)
+        .catch((e) => console.warn("subscribeWatchEvents failed:", e));
+    }
+  });
 </script>
 
 <main class="app">
@@ -17,6 +76,9 @@
   <div class="layout">
     <section class="left">
       <DropZone />
+      {#if platform.supportsWatchFolders}
+        <WatchFolders />
+      {/if}
       <QueueList />
     </section>
     <aside class="right">

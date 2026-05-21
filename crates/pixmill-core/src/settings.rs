@@ -1,4 +1,17 @@
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
+
+/// A directory the user has asked the app to keep an eye on for incoming
+/// images. Persisted across launches; live-watching itself is wired up by
+/// `src-tauri/src/watch.rs`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WatchedFolder {
+    pub path: PathBuf,
+    pub recursive: bool,
+    pub auto_process: bool,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase", tag = "kind")]

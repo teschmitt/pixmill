@@ -11,9 +11,25 @@
       queue.items.some((i) => i.status !== "error")
   );
 
+  let outputError = $state<string | null>(null);
+
   async function chooseOutput() {
+    outputError = null;
     const dir = await platform.pickOutputFolder();
-    if (dir) settings.outputDir = dir;
+    if (!dir) return;
+    // On Tauri, reject paths that overlap any registered watch folder —
+    // otherwise an auto-process loop or a wholesale wipe of the source
+    // becomes possible. The web build doesn't have watch folders so the
+    // capability flag short-circuits the check.
+    if (platform.supportsWatchFolders) {
+      try {
+        await platform.validateOutputDir(dir);
+      } catch (e) {
+        outputError = String(e);
+        return;
+      }
+    }
+    settings.outputDir = dir;
   }
 
   async function run() {
@@ -72,6 +88,9 @@
     {:else}
       <div class="path muted">(none selected)</div>
     {/if}
+    {#if outputError}
+      <div class="error">{outputError}</div>
+    {/if}
   </div>
 
   {#if batch.running || batch.completed > 0}
@@ -128,6 +147,10 @@
   .path {
     font-size: 11px;
     word-break: break-all;
+  }
+  .error {
+    font-size: 12px;
+    color: #b03a2e;
   }
   .progress {
     height: 6px;
