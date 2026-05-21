@@ -31,7 +31,7 @@
       await platform.runBatch(
         targets.map((t) => t.path),
         outDir,
-        settings.current,
+        $state.snapshot(settings.current),
         (update) => {
           batch.completed = update.completed;
           batch.total = update.total;

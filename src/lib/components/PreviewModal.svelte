@@ -79,7 +79,7 @@
     previewError = null;
     resetView();
     platform
-      .previewOne(item.path, settings.current)
+      .previewOne(item.path, $state.snapshot(settings.current))
       .then((res) => {
         if (cancelled) return;
         preview = res;
