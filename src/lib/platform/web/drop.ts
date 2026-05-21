@@ -49,17 +49,25 @@ export function setupDropHandler(worker: Remote<WorkerApi>, handlers: DropHandle
     depth = 0;
     handlers.onDragging(false);
 
+    // Snapshot accessors synchronously: per the HTML drag-drop spec, each
+    // DataTransferItem detaches after the first `await`, after which
+    // `webkitGetAsEntry()` / `getAsFile()` return null. Safari enforces this
+    // strictly — without the snapshot, a multi-select drag from Finder only
+    // landed the file the drag originated on.
     const items = Array.from(e.dataTransfer?.items ?? []);
+    const captured = items.map((item) => {
+      const entry = item.webkitGetAsEntry?.() ?? null;
+      // Fallback to getAsFile only when no entry was available (older browsers
+      // or non-FS drag sources). Grabbed synchronously for the same reason.
+      return { entry, file: entry ? null : item.getAsFile() };
+    });
+
     const files: File[] = [];
-    for (const item of items) {
-      const entry = item.webkitGetAsEntry?.();
+    for (const { entry, file } of captured) {
       if (entry) {
         await collectFromEntry(entry, files);
-      } else {
-        // Fallback for browsers / drag sources without entry API: take the
-        // top-level File directly.
-        const file = item.getAsFile();
-        if (file && isSupported(file.name)) files.push(file);
+      } else if (file && isSupported(file.name)) {
+        files.push(file);
       }
     }
     if (files.length === 0) return;
