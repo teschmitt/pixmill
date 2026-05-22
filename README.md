@@ -12,12 +12,16 @@ Electron, no servers.
 
 - 🗂 Drag-and-drop, file picker, recursive folder picker
 - 🖼 Live thumbnail grid for up to ~100 images at a time
+- 👀 Side-by-side preview — click a thumbnail to compare source vs. processed with synced zoom and pan
 - ✂ Resize (long-edge px or %), crop (aspect ratio or pixels), rotate / flip
+- 📦 Target-file-size compression — binary-search on encoder quality to hit a kilobyte budget
+- 👁 Watch folders — live filesystem ingest with optional auto-process
 - 🧭 EXIF orientation baked into output pixels — no more sideways portraits
 - ⚡ Parallel batch processing in Rust (`rayon`), per-file progress over Tauri channels
 - 💾 Originals are never touched — output goes to a folder you choose
 - 🔁 Sticky settings — your last-used configuration restores on launch
 - 🖥 Native window: macOS · Windows · Linux. ~6–15 MB release binary.
+- 🌐 Same pipeline runs in the browser via WebAssembly (see [Web build](#web-build))
 
 ## Quick start
 
@@ -81,7 +85,8 @@ A small Tauri shell drives a Rust image-processing crate.
 ```
 pixmill/
 ├── crates/pixmill-core/      Rust image pipeline (testable, no Tauri deps)
-├── src-tauri/                Tauri shell: IPC commands, persistence, dialogs
+├── crates/pixmill-wasm/      wasm-bindgen bridge exposing pixmill-core to the browser
+├── src-tauri/                Tauri shell: IPC commands, persistence, dialogs, watch folders
 └── src/                      SvelteKit frontend (SPA mode, Svelte 5 runes)
 ```
 
@@ -94,13 +99,19 @@ streams progress back to the UI via `tauri::ipc::Channel`.
 ```sh
 pnpm tauri dev            # run the app with hot reload
 pnpm check                # type-check the frontend
-cargo test -p pixmill-core    # 21 image-pipeline tests
+pnpm test                 # vitest (frontend unit tests, e.g. autoBurstCoalescer)
+cargo test -p pixmill-core    # 27 image-pipeline tests
 cargo check -p pixmill-core   # fast iteration without GTK system libs
 ```
 
+There's also a `Makefile` with shortcuts: `make check` runs the full CI suite
+(fmt-check + lint + type-check + test), `make dev` is `pnpm tauri dev`, and
+`make fmt` formats both the frontend and Rust side. `make help` lists the rest.
+
 The `pixmill-core` integration tests synthesize real PNG fixtures and run them
 through the full pipeline, so they cover ingest, metadata, decode, resize,
-crop, rotate, EXIF orientation, encode, and parallel batch execution end-to-end.
+crop, rotate, EXIF orientation, encode, target-file-size compression, and
+parallel batch execution end-to-end.
 
 ## AVIF and HEIC (optional)
 
@@ -118,12 +129,13 @@ mess — see [`PLAN.md`](./PLAN.md) for the design note).
 
 ## Roadmap
 
-The MVP is shipped. Planned follow-ups, roughly in order:
+The MVP is shipped, and the v1 backlog (target-file-size compression, watch
+folders, side-by-side preview, web build) is done. Planned follow-ups, roughly
+in order:
 
-1. Target-file-size resize (iterative quality search)
+1. Strip-EXIF option (privacy — currently `preserve_exif` only controls orientation)
 2. Full EXIF blob copy on output (today: orientation only)
-3. Watch-folder mode
-4. Named presets
+3. Named presets
 
 The full backlog with implementation notes is in [`PLAN.md`](./PLAN.md).
 

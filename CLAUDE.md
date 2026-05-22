@@ -18,7 +18,8 @@ status live in `PLAN.md`. Read both before suggesting work.
 - **Svelte 5 runes** — `$state`, `$derived`, `$effect`, `$props`. NOT the legacy `$store` syntax.
 - **Rust workspace** at the project root:
   - `crates/pixmill-core/` — image pipeline. No Tauri dependency. This is where logic lives and where tests live.
-  - `src-tauri/` — thin Tauri shell: IPC commands, persistence, plugin wiring.
+  - `crates/pixmill-wasm/` — wasm-bindgen bridge that re-exports `pixmill-core` for the browser build. Depends on `pixmill-core` with `default-features = false` to drop the `fs` and `lossy-webp` features that can't compile to `wasm32-unknown-unknown`.
+  - `src-tauri/` — thin Tauri shell: IPC commands, persistence, watch folders, plugin wiring.
 
 ## Commands
 
@@ -26,10 +27,13 @@ status live in `PLAN.md`. Read both before suggesting work.
 pnpm install            # first time + after pulling deps
 pnpm tauri dev          # run the desktop app
 pnpm check              # svelte-check (type-check the frontend)
+pnpm test               # vitest (frontend unit tests)
 pnpm build              # build the static frontend (smoke test)
-cargo test -p pixmill-core  # 19 image-pipeline tests
+pnpm build:web          # wasm + VITE_PLATFORM=web static build
+cargo test -p pixmill-core  # 27 image-pipeline tests
 cargo check -p pixmill-core # fast type-check without GTK system libs
 pnpm tauri build        # production bundle
+make check              # fmt-check + lint + type-check + test (same as CI)
 ```
 
 ## Conventions
@@ -76,6 +80,22 @@ pnpm tauri build        # production bundle
   `rm -rf node_modules && pnpm install` on their machine.
 - **Frontend uses SvelteKit but in SPA mode.** `+layout.ts` has `export const ssr = false`.
   Don't add server-side code or `+page.server.ts` files — there is no server.
+- **Web vs. Tauri at build time**: `src/lib/platform/` has a `Platform` interface
+  with `tauri/` and `web/` implementations. The active impl is picked from
+  `import.meta.env.VITE_PLATFORM` (defaults to `tauri`), so Vite dead-code-
+  eliminates the unused branch. Web-only capabilities check
+  `platform.supportsWatchFolders` etc. before rendering UI. New filesystem-style
+  APIs need a stub on the web side (typically a ZIP-based fallback).
+- **`pixmill-core` must keep compiling to wasm**: `pixmill-wasm` depends on
+  `pixmill-core` with `default-features = false`. Anything in core that pulls
+  in `fs`, `walkdir`, `rayon`, or `libwebp-sys` belongs behind a feature flag
+  (`fs`, `lossy-webp`, etc.), not in the default build. If you add a new
+  Cargo dependency to `pixmill-core`, run `pnpm build:wasm` to verify.
+- **Side-by-side preview** (`PreviewModal.svelte` + `stores/preview.svelte.ts`):
+  the two panes share a normalized `(viewCenterX, viewCenterY, viewLevel)`
+  state. Crop is a known caveat — the preview is a sub-region of the source,
+  so "same normalized point" doesn't line up content-wise. Fixing it needs a
+  crop-aware coordinate transform; see the comment in `PreviewModal.svelte`.
 - **The `image` crate types**: a `DynamicImage` is the right working type. Pixel
   type detection for `fast_image_resize` uses `DynamicImage::pixel_type()` from
   the `IntoImageView` trait — that trait must be in scope at the call site.
@@ -128,10 +148,14 @@ pnpm tauri build        # production bundle
 
 See `PLAN.md` for the phase-by-phase status and the v2 backlog. The short version:
 JPEG / PNG / WebP work end-to-end with resize/crop/rotate, parallel processing,
-progress streaming, EXIF orientation, and sticky settings. AVIF/HEIC need to be
-enabled by the user on their machine. A handful of v2 features are stubbed out
-in types but not implemented (target-file-size resize, lossy WebP, named presets,
-watch folder).
+progress streaming, EXIF orientation, sticky settings, target-file-size
+compression (binary-search on encoder quality), lossy + lossless WebP, watch
+folders with optional auto-process, side-by-side preview, and a wasm web build
+deployed via GitHub Pages. AVIF/HEIC decode is gated behind Cargo features and
+needs system libs (`dav1d`, `libheif`).
+
+Remaining v2 work in `PLAN.md`: strip-EXIF privacy option, full EXIF blob copy
+on output (today only orientation is preserved), and named presets.
 
 ## When the user asks for a new feature
 
