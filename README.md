@@ -69,14 +69,69 @@ the `wasm32-unknown-unknown` target, and `wasm-pack` on `PATH`. Install with
 `github.com/WebAssembly/binaryen/releases` and caches it under
 `~/.cache/.wasm-pack/`.
 
-Deployment runs on **GitHub Pages** via
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). Every push to
-`main` builds the wasm + frontend on GitHub Actions and publishes `build/`
-to Pages. PRs run the same build as a check but don't deploy — GH Pages
-hosts only one site per repo. The workflow sets `BASE_PATH=/<repo>` so
-SvelteKit's absolute URLs resolve under `https://<user>.github.io/<repo>/`;
-binding a custom domain lets you drop the prefix (set the workflow's
-`BASE_PATH` env to an empty string in that case).
+Deployment runs on **GitHub Pages** as part of the release workflow —
+see [Release process](#release-process). Every release rebuilds the wasm +
+frontend and publishes `build/` to Pages so the hosted demo always matches
+the latest tagged version. PRs run a smoke build via
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) but don't deploy.
+The workflow sets `BASE_PATH=/<repo>` so SvelteKit's absolute URLs resolve
+under `https://<user>.github.io/<repo>/`; binding a custom domain lets you
+drop the prefix (set the workflow's `BASE_PATH` env to an empty string in
+that case).
+
+## Release process
+
+Releases are driven by PR labels.
+[`.github/workflows/release.yml`](.github/workflows/release.yml) watches for
+PRs merging into `main` and, when it sees a `release:major|minor|patch` label,
+bumps versions, tags, builds desktop bundles for macOS / Windows / Linux,
+publishes a GitHub Release with auto-generated notes, and redeploys the web
+build to Pages.
+
+**Cutting a release**: add exactly one of these labels to your PR before
+merging:
+
+| Label           | Bumps             | Use for                             |
+| --------------- | ----------------- | ----------------------------------- |
+| `release:major` | `1.2.3` → `2.0.0` | Breaking changes                    |
+| `release:minor` | `1.2.3` → `1.3.0` | New features (backwards-compatible) |
+| `release:patch` | `1.2.3` → `1.2.4` | Bug fixes, small tweaks             |
+
+Merge with no `release:*` label and nothing happens — the change ships in
+the changelog of the next labeled release. Use this for refactors, docs,
+chore commits, and anything else not worth its own version.
+
+**One-time repo setup**:
+
+```sh
+# Create the labels (run once per repo)
+gh label create "release:major" --color "B60205" --description "Bumps MAJOR — breaking changes"
+gh label create "release:minor" --color "0E8A16" --description "Bumps MINOR — new features"
+gh label create "release:patch" --color "1D76DB" --description "Bumps PATCH — bug fixes"
+gh label create "skip-changelog" --color "C2E0C6" --description "Omit from release notes"
+```
+
+If `main` has branch protection that blocks direct pushes by Actions, create
+a fine-grained personal access token with `contents: write` on this repo
+and save it as the `RELEASE_TOKEN` secret. The workflow falls back to the
+default `GITHUB_TOKEN` when `RELEASE_TOKEN` isn't set, which works on
+unprotected branches.
+
+**What lands on `main` per release**: a single `chore: release vX.Y.Z`
+commit bumping `package.json`, `Cargo.toml`, `Cargo.lock`, and prepending
+the release notes to `CHANGELOG.md`. The matching annotated tag points at
+that commit. `src-tauri/tauri.conf.json` reads its version from
+`package.json` via Tauri 2's `"version": "../package.json"` indirection, so
+it doesn't need a separate bump.
+
+**Caveats**:
+
+- Bundles are unsigned. macOS users see "unidentified developer" on first
+  launch (right-click → Open to bypass); Windows users see a SmartScreen
+  warning. Signing requires Apple Developer and Authenticode certs we don't
+  have yet.
+- macOS builds are universal (arm64 + x86_64), which roughly doubles the
+  macOS build time per release.
 
 ## Architecture
 
@@ -118,11 +173,11 @@ parallel batch execution end-to-end.
 These formats need system libraries because no mature pure-Rust decoder exists
 yet. They're gated behind Cargo features:
 
-| Platform | Install                                     | Then build with                                                       |
-| -------- | ------------------------------------------- | --------------------------------------------------------------------- |
+| Platform | Install                                     | Then build with                                                               |
+| -------- | ------------------------------------------- | ----------------------------------------------------------------------------- |
 | macOS    | `brew install dav1d libheif`                | `pnpm tauri build -- --features "pixmill-core/avif-decode pixmill-core/heic"` |
-| Linux    | `sudo apt install libdav1d-dev libheif-dev` | same as above                                                         |
-| Windows  | `vcpkg install dav1d libheif`               | same as above                                                         |
+| Linux    | `sudo apt install libdav1d-dev libheif-dev` | same as above                                                                 |
+| Windows  | `vcpkg install dav1d libheif`               | same as above                                                                 |
 
 AVIF and HEIC inputs are auto-converted to JPEG on output (HEIC encoders are a
 mess — see [`PLAN.md`](./PLAN.md) for the design note).

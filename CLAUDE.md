@@ -56,6 +56,22 @@ make check              # fmt-check + lint + type-check + test (same as CI)
   you add a new pipeline op; the bar is "does this produce the right output on
   a real fixture image?"
 
+## Releases
+
+- **Label PRs to ship**: add `release:major`, `release:minor`, or `release:patch`
+  before merging. The label drives the bump in `.github/workflows/release.yml`.
+  No label = merge ships in the next labeled release's changelog. Pick `patch`
+  for bug fixes, `minor` for new features, `major` for breaking changes.
+- **Don't bump versions in PRs**. The release workflow does it on merge —
+  bumping `package.json` / `Cargo.toml` manually creates merge conflicts and
+  desyncs from `CHANGELOG.md`.
+- **Version source of truth is `package.json`**. `Cargo.toml` mirrors it via
+  `workspace.package.version`; `tauri.conf.json` reads it via Tauri 2's
+  `"version": "../package.json"` indirection.
+- **CHANGELOG.md is generated, not hand-edited**. `scripts/update-changelog.mjs`
+  prepends each release's notes (sourced from GitHub's release-notes API,
+  grouped by `.github/release.yml`). Only edit it for retroactive fixes.
+
 ## Things that will trip you up
 
 - **WebP quality slider is lossy by default; `webp_quality: null` is the

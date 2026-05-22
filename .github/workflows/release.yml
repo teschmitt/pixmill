@@ -1,0 +1,269 @@
+name: Release
+
+# Fires when a PR closes against main. We only act when:
+#   1. the PR actually merged (closed-without-merging is a no-op), and
+#   2. it carries exactly one `release:major|minor|patch` label.
+# Unlabeled merges (chore, docs, refactor) ship silently in the next release.
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+# Default-deny. Individual jobs widen as needed: `release` writes to the repo
+# and creates the GitHub Release; `deploy-pages` uses OIDC.
+permissions:
+  contents: read
+
+# Releases must run one at a time. Two concurrent runs would race on the
+# bump commit and produce conflicting tags.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    outputs:
+      bump: ${{ steps.detect.outputs.bump }}
+      should_release: ${{ steps.detect.outputs.should_release }}
+    steps:
+      - id: detect
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = context.payload.pull_request.labels.map(l => l.name);
+            const wanted = ['release:major', 'release:minor', 'release:patch'];
+            const found = labels.filter(l => wanted.includes(l));
+            if (found.length === 0) {
+              core.info('No release:* label — skipping release.');
+              core.setOutput('should_release', 'false');
+              return;
+            }
+            if (found.length > 1) {
+              core.setFailed(`PR has multiple release labels: ${found.join(', ')}. Pick one.`);
+              return;
+            }
+            const bump = found[0].split(':')[1];
+            core.info(`Release bump: ${bump}`);
+            core.setOutput('bump', bump);
+            core.setOutput('should_release', 'true');
+
+  release:
+    needs: prepare
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      tag: ${{ steps.bump.outputs.tag }}
+      body: ${{ steps.notes.outputs.body }}
+    steps:
+      # RELEASE_TOKEN (a fine-grained PAT or GitHub App token with
+      # `contents: write`) is needed if branch protection blocks direct
+      # pushes by GITHUB_TOKEN. Falls back to GITHUB_TOKEN otherwise.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        run: rustup show active-toolchain
+
+      - id: bump
+        env:
+          BUMP: ${{ needs.prepare.outputs.bump }}
+        run: |
+          set -euo pipefail
+          PREV_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n1 || true)
+          echo "prev_tag=${PREV_TAG}" >> "$GITHUB_OUTPUT"
+          NEW_VERSION=$(node scripts/bump-version.mjs "$BUMP")
+          echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+
+      # Generate release notes BEFORE pushing the tag so we can fold them
+      # into CHANGELOG.md as part of the bump commit. The API works fine
+      # with a tag_name that doesn't exist yet — it just labels the output.
+      - id: notes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = '${{ steps.bump.outputs.tag }}';
+            const prev = '${{ steps.bump.outputs.prev_tag }}';
+            const params = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              target_commitish: 'main',
+            };
+            if (prev) params.previous_tag_name = prev;
+            const { data } = await github.rest.repos.generateReleaseNotes(params);
+            const delim = `EOF_${Date.now()}`;
+            require('fs').appendFileSync(
+              process.env.GITHUB_OUTPUT,
+              `body<<${delim}\n${data.body}\n${delim}\n`,
+            );
+
+      - name: Update CHANGELOG.md
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+          BODY: ${{ steps.notes.outputs.body }}
+        run: node scripts/update-changelog.mjs "$VERSION" "$BODY"
+
+      - name: Commit + tag + push
+        env:
+          TAG: ${{ steps.bump.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json Cargo.toml Cargo.lock CHANGELOG.md
+          git commit -m "chore: release ${TAG}"
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          # --atomic so the commit and tag land together, or neither does.
+          git push --atomic origin main "refs/tags/${TAG}"
+
+  build-tauri:
+    needs: release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target universal-apple-darwin
+            rust_targets: aarch64-apple-darwin,x86_64-apple-darwin
+          - platform: ubuntu-latest
+            args: ""
+            rust_targets: ""
+          - platform: windows-latest
+            args: ""
+            rust_targets: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        run: |
+          rustup show active-toolchain
+          if [ -n "${{ matrix.rust_targets }}" ]; then
+            IFS=',' read -ra TARGETS <<< "${{ matrix.rust_targets }}"
+            for t in "${TARGETS[@]}"; do rustup target add "$t"; done
+          fi
+        shell: bash
+
+      # Linux Tauri builds need GTK/WebKit dev libs. macOS + Windows have
+      # what they need out of the box.
+      - name: Install Linux build deps
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+            target
+          key: ${{ runner.os }}-tauri-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: ${{ runner.os }}-tauri-
+
+      - run: pnpm install --frozen-lockfile
+
+      # tauri-action builds the app, creates the Release on first matrix
+      # entry, and uploads each platform's bundles as release assets.
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ needs.release.outputs.tag }}
+          releaseName: Pixmill ${{ needs.release.outputs.tag }}
+          releaseBody: ${{ needs.release.outputs.body }}
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+
+  build-web:
+    needs: release
+    runs-on: ubuntu-latest
+    env:
+      BASE_PATH: /${{ github.event.repository.name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        run: |
+          rustup show active-toolchain
+          rustup target add wasm32-unknown-unknown
+
+      - name: Cache Cargo + wasm-pack
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/wasm-pack
+            ~/.cache/.wasm-pack
+            target
+          key: ${{ runner.os }}-cargo-web-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-web-
+
+      - name: Install wasm-pack
+        run: command -v wasm-pack || cargo install wasm-pack --locked
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build:web
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build
+
+  deploy-pages:
+    needs: build-web
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
