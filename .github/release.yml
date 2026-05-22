@@ -1,0 +1,29 @@
+# Configures the body that GitHub generates when its release-notes API is
+# called (and what the "Auto-generate" button produces). Each entry's `labels`
+# decides which section a merged PR lands in; the first matching section wins,
+# so order matters.
+
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+      - dependencies
+      - chore
+  categories:
+    - title: Breaking changes
+      labels:
+        - release:major
+        - breaking
+    - title: Features
+      labels:
+        - release:minor
+        - feature
+        - enhancement
+    - title: Fixes
+      labels:
+        - release:patch
+        - bug
+        - fix
+    - title: Other
+      labels:
+        - "*"

@@ -1,10 +1,4 @@
-import type {
-  BatchItemResult,
-  ImageFormat,
-  Settings,
-  WatchedFolder,
-  WatchEvent,
-} from "$lib/types";
+import type { BatchItemResult, ImageFormat, Settings, WatchedFolder, WatchEvent } from "$lib/types";
 
 export interface RawMetadata {
   path: string;
@@ -86,11 +80,7 @@ export interface Platform {
   supportsWatchFolders: boolean;
   addWatchedFolder(folder: WatchedFolder): Promise<void>;
   removeWatchedFolder(path: string): Promise<void>;
-  setWatchedFolderConfig(
-    path: string,
-    recursive: boolean,
-    autoProcess: boolean
-  ): Promise<void>;
+  setWatchedFolderConfig(path: string, recursive: boolean, autoProcess: boolean): Promise<void>;
   validateOutputDir(path: string): Promise<void>;
   subscribeWatchEvents(handler: (event: WatchEvent) => void): Promise<void>;
   retryWatchedFolder(path: string): Promise<void>;

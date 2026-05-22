@@ -254,8 +254,7 @@
       type="radio"
       name="compression"
       checked={compressionKind === "targetFileSize"}
-      onchange={() =>
-        setCompression({ kind: "targetFileSize", kilobytes: compressionKilobytes })}
+      onchange={() => setCompression({ kind: "targetFileSize", kilobytes: compressionKilobytes })}
     />
     Target file size ≤
     <input

@@ -1,0 +1,88 @@
+name: CI
+
+# Runs on every PR so broken builds get caught before merge. Pushes to main
+# don't run this — the release workflow rebuilds everything anyway, and a
+# plain merge with no `release:*` label doesn't need redundant work.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        run: rustup show active-toolchain
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-ci-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-ci-
+
+      - run: pnpm install --frozen-lockfile
+
+      # `make check` = fmt-check + lint + type-check + test. Matches the
+      # local pre-commit hook so CI catches anything that bypassed it.
+      - run: make check
+
+  build-web:
+    runs-on: ubuntu-latest
+    env:
+      BASE_PATH: /${{ github.event.repository.name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        run: |
+          rustup show active-toolchain
+          rustup target add wasm32-unknown-unknown
+
+      - name: Cache Cargo + wasm-pack
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/wasm-pack
+            ~/.cache/.wasm-pack
+            target
+          key: ${{ runner.os }}-cargo-web-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-web-
+
+      - name: Install wasm-pack
+        run: command -v wasm-pack || cargo install wasm-pack --locked
+
+      - run: pnpm install --frozen-lockfile
+
+      # Smoke-test the web build so PRs don't break the wasm path; the
+      # actual deploy happens from the release workflow.
+      - run: pnpm build:web

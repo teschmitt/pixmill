@@ -247,9 +247,7 @@ async function setWatchedFolderConfig(
 async function validateOutputDir(_path: string): Promise<void> {
   notSupported();
 }
-async function subscribeWatchEvents(
-  _handler: (event: WatchEvent) => void
-): Promise<void> {
+async function subscribeWatchEvents(_handler: (event: WatchEvent) => void): Promise<void> {
   notSupported();
 }
 async function retryWatchedFolder(_path: string): Promise<void> {

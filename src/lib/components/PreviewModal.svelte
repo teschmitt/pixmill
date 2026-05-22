@@ -131,12 +131,7 @@
     panY: number;
   }
 
-  function computeGeom(
-    naturalW: number,
-    naturalH: number,
-    paneW: number,
-    paneH: number
-  ): PaneGeom {
+  function computeGeom(naturalW: number, naturalH: number, paneW: number, paneH: number): PaneGeom {
     if (naturalW <= 0 || naturalH <= 0 || paneW <= 0 || paneH <= 0) {
       return { fitScale: 1, paneScale: 1, imgW: 0, imgH: 0, panX: 0, panY: 0 };
     }
@@ -298,10 +293,7 @@
     }
   }
 
-  function handleImgLoad(
-    event: Event,
-    setNatural: (dims: { w: number; h: number }) => void
-  ) {
+  function handleImgLoad(event: Event, setNatural: (dims: { w: number; h: number }) => void) {
     const img = event.target as HTMLImageElement;
     if (img.naturalWidth > 0 && img.naturalHeight > 0) {
       setNatural({ w: img.naturalWidth, h: img.naturalHeight });
@@ -335,8 +327,7 @@
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         class="pane zoom-pane"
-        class:pannable={sourceGeom.imgW > sourcePaneSize.w ||
-          sourceGeom.imgH > sourcePaneSize.h}
+        class:pannable={sourceGeom.imgW > sourcePaneSize.w || sourceGeom.imgH > sourcePaneSize.h}
         class:dragging={dragging?.pane === "source"}
         bind:this={sourcePane}
         onwheel={handleSourceWheel}
