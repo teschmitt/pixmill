@@ -109,7 +109,11 @@ export class AutoBurstCoalescer {
   /// way to await completion without relying on real wall-clock timing.
   async drainForTest(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    while ([...this.buckets.values()].some((b) => b.inflight || b.paths.length > 0 || b.pending.length > 0)) {
+    while (
+      [...this.buckets.values()].some(
+        (b) => b.inflight || b.paths.length > 0 || b.pending.length > 0
+      )
+    ) {
       await new Promise((r) => setTimeout(r, 5));
     }
   }

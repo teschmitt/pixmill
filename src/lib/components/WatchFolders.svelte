@@ -42,10 +42,7 @@
     <h2>Watch folders</h2>
     <div class="actions">
       <button onclick={onAddFolder}>Add watch folder…</button>
-      <button
-        onclick={scanAll}
-        disabled={busy || watchFolders.folders.length === 0}
-      >
+      <button onclick={scanAll} disabled={busy || watchFolders.folders.length === 0}>
         {busy ? "Scanning…" : "Scan all once"}
       </button>
     </div>
@@ -57,8 +54,7 @@
 
   {#if watchFolders.folders.length === 0}
     <p class="hint">
-      Register a folder and new images dropped into it will appear in the queue
-      automatically.
+      Register a folder and new images dropped into it will appear in the queue automatically.
     </p>
   {:else}
     <div class="list">

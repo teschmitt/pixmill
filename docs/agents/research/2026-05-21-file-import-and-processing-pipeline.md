@@ -136,6 +136,7 @@ pixmill/
 **`src/lib/components/DropZone.svelte`** owns the import UI. On mount it calls `platform.setupDropHandler({ onDragging, onDrop })` (DropZone.svelte:57-66) and wires `onDrop` to a single `ingest(paths)` function (DropZone.svelte:35-45). The same `ingest` is reused by manual "Add files…" / "Add folder…" buttons (DropZone.svelte:47-55), so all three entry paths converge.
 
 `ingest(paths)`:
+
 - Calls `platform.ingest(paths, recursive)` — returns `RawMetadata[]` (DropZone.svelte:39).
 - Maps each into a `QueueItem` via `toQueueItem` (DropZone.svelte:13-33). Status is `"error"` if the Rust side returned an error string for that file, otherwise `"pending"`.
 - Pushes the items into the global `queue` singleton via `queue.add(...)` (DropZone.svelte:40).
@@ -144,6 +145,7 @@ pixmill/
 **`src/lib/platform/index.ts`** is a build-time switch (platform/index.ts:8-10). `VITE_PLATFORM=web` selects the web bundle; everything else (including `pnpm tauri dev|build`) gets the Tauri impl. The unused branch is dead-code-eliminated by Vite.
 
 **`src/lib/platform/tauri/drop.ts`** translates the Tauri webview's `onDragDropEvent` into platform-agnostic callbacks (tauri/drop.ts:10-26):
+
 - `enter`/`over` → `onDragging(true)`
 - `leave` → `onDragging(false)`
 - `drop` → `onDragging(false)` then `onDrop(p.paths)` with native filesystem paths
@@ -151,6 +153,7 @@ pixmill/
 Returns an unsubscribe function.
 
 **`src/lib/platform/tauri/index.ts`** is the IPC façade. Every method is an `invoke()` wrapper:
+
 - `ingest(paths, recursive)` → `invoke<RawMetadata[]>("ingest_paths", ...)` (tauri/index.ts:18-20)
 - `pickFiles()` / `pickFolder()` → `@tauri-apps/plugin-dialog`'s `open(...)` with image extension filter (tauri/index.ts:30-47)
 - `makeThumbnail(path, longEdge=256)` → `invoke<string>("make_thumbnail", ...)` (tauri/index.ts:26-28)
@@ -162,16 +165,16 @@ The platform `Platform` interface is declared in `src/lib/platform/types.ts:51-7
 
 **`src-tauri/src/lib.rs:5-21`** registers eight `#[tauri::command]` handlers and two plugins (`tauri_plugin_opener`, `tauri_plugin_dialog`):
 
-| Command | Signature (commands.rs) | Purpose |
-|---|---|---|
-| `ingest_paths` | `(Vec<String>, bool) -> Vec<ImageMetadata>` (commands.rs:17-33) | Expand dirs, filter, dedupe, read metadata |
-| `read_metadata` | `(String) -> ImageMetadata` (commands.rs:36-39) | Re-read one path |
-| `make_thumbnail` | `async (String, Option<u32>) -> Result<String, String>` (commands.rs:42-51) | Base64 `data:` URL via `spawn_blocking` |
-| `load_settings` | `(AppHandle) -> Result<Option<PersistedState>, String>` (commands.rs:54-57) | Read settings.json |
-| `save_settings` | `(AppHandle, PersistedState) -> Result<(), String>` (commands.rs:60-62) | Write settings.json |
-| `load_source` | `async (String) -> Result<SourceLoad, String>` (commands.rs:89-95) | Preview-modal source loader |
-| `preview_one` | `async (String, Settings) -> Result<PreviewResult, String>` (commands.rs:139-156) | Single-file in-memory pipeline |
-| `run_batch` | `async (Vec<String>, String, Settings, Channel<ProgressUpdate>) -> Result<Vec<BatchItemResult>, String>` (commands.rs:175-192) | Streaming batch pipeline |
+| Command          | Signature (commands.rs)                                                                                                        | Purpose                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| `ingest_paths`   | `(Vec<String>, bool) -> Vec<ImageMetadata>` (commands.rs:17-33)                                                                | Expand dirs, filter, dedupe, read metadata |
+| `read_metadata`  | `(String) -> ImageMetadata` (commands.rs:36-39)                                                                                | Re-read one path                           |
+| `make_thumbnail` | `async (String, Option<u32>) -> Result<String, String>` (commands.rs:42-51)                                                    | Base64 `data:` URL via `spawn_blocking`    |
+| `load_settings`  | `(AppHandle) -> Result<Option<PersistedState>, String>` (commands.rs:54-57)                                                    | Read settings.json                         |
+| `save_settings`  | `(AppHandle, PersistedState) -> Result<(), String>` (commands.rs:60-62)                                                        | Write settings.json                        |
+| `load_source`    | `async (String) -> Result<SourceLoad, String>` (commands.rs:89-95)                                                             | Preview-modal source loader                |
+| `preview_one`    | `async (String, Settings) -> Result<PreviewResult, String>` (commands.rs:139-156)                                              | Single-file in-memory pipeline             |
+| `run_batch`      | `async (Vec<String>, String, Settings, Channel<ProgressUpdate>) -> Result<Vec<BatchItemResult>, String>` (commands.rs:175-192) | Streaming batch pipeline                   |
 
 `ingest_paths` (commands.rs:17-33) is synchronous (no `async`). It iterates the dropped/picked paths, expands directories via `ingest::collect_from_dir(&p, recursive)` (commands.rs:23), filters via `ingest::filter_supported(...)` (commands.rs:28), passes through `dedupe_keep_order` (commands.rs:194-203), then calls `metadata::read(p)` on each. The result is a `Vec<ImageMetadata>` with per-file `error` populated if dimension read failed.
 
@@ -212,6 +215,7 @@ pending → thumbnailing → ready → processing → done
 ```
 
 Statuses: `"pending" | "thumbnailing" | "ready" | "processing" | "done" | "error"`. Transitions:
+
 - `pending` ← initial after `queue.add` (or `error` if Rust reported an ingest error)
 - `pending → thumbnailing` ← `requestPendingThumbnails` (thumbnails.ts:16)
 - `thumbnailing → ready` ← thumbnail success (thumbnails.ts:19-22)
@@ -228,6 +232,7 @@ Statuses: `"pending" | "thumbnailing" | "ready" | "processing" | "done" | "error
 **`src/lib/components/RunBar.svelte`** is the consumer of `runBatch`. The button is `$derived` to require: not running, queue non-empty, output dir selected, at least one non-error item (RunBar.svelte:7-12).
 
 `run()` (RunBar.svelte:19-63):
+
 1. Filters out items with `status === "error"` (RunBar.svelte:22).
 2. `batch.start(targets.length)` (RunBar.svelte:25).
 3. Optimistically marks all targets `processing` (RunBar.svelte:26-28).
@@ -244,7 +249,10 @@ async function runBatch(paths, outDir, settings, onProgress) {
   const channel = new Channel<ProgressUpdate>();
   channel.onmessage = onProgress;
   return await invoke<BatchItemResult[]>("run_batch", {
-    paths, outDir, settings, onProgress: channel,
+    paths,
+    outDir,
+    settings,
+    onProgress: channel,
   });
 }
 ```
@@ -256,10 +264,12 @@ The `Channel` is a Tauri IPC primitive (`@tauri-apps/api/core`). Each `on_progre
 **`crates/pixmill-core/src/lib.rs:1-19`** declares the module tree and re-exports the public API: `IbpError`/`IbpResult`, `ImageFormat`, `ImageMetadata`, `Settings` (and its op-mode enums), and (under feature `fs`) `read_metadata`/`read_metadata_many`. The `fs` feature gates anything that touches the disk; that's the feature `src-tauri` enables.
 
 **`ingest.rs`** is two utility functions:
+
 - `collect_from_dir(dir, recursive)` (ingest.rs:8-19): wraps `walkdir::WalkDir` with `max_depth = if recursive { MAX } else { 1 }`, filters to files only, then to `is_supported_input`.
 - `filter_supported(paths)` (ingest.rs:22-27): drops unsupported extensions from a flat list.
 
 **`metadata.rs`** has `ImageMetadata { path, filename, format, width, height, size_bytes, error }` (metadata.rs:7-17) and two reader functions:
+
 - `from_bytes(bytes, filename)` (metadata.rs:21-47) — for the web/WASM path.
 - `read(path)` (metadata.rs:52-81, feature `fs`) — uses `image::ImageReader::open(path).with_guessed_format().into_dimensions()` so the header is read without loading the full pixel buffer. `size_bytes` comes from `std::fs::metadata(path)`.
 
@@ -287,6 +297,7 @@ sources.par_iter().map(|src| {
 `plan_output_path` (pipeline.rs:86-101) appends `_1`, `_2`, ... up to `_9999` to avoid clobbering.
 
 **Op chain** (`crates/pixmill-core/src/ops/mod.rs:12-30`) — `apply_all`:
+
 1. `orient::apply` if `preserve_exif` and EXIF orientation present.
 2. `rotate::apply(image, settings.rotate)` — `None | Cw90 | Cw180 | Cw270 | FlipH | FlipV`.
 3. `crop::apply(image, settings.crop)` — `None | AspectRatio { w, h } | Pixels { w, h }`, center-crop.
@@ -295,6 +306,7 @@ sources.par_iter().map(|src| {
 **Decode** (`decode.rs:17-31`): format-dispatched. JPEG/PNG/WebP go through `image::ImageReader::with_guessed_format()`. HEIC and AVIF are feature-gated (`heic`, `avif-decode`) and require system libs (`libheif`, `dav1d`).
 
 **Encode** (`encode.rs`):
+
 - `resolve_output_format(source, user_choice)` (encode.rs:14-28): `Keep` returns the source format, except HEIC/AVIF→JPEG per MVP design.
 - `to_bytes` / `write_to_path` (encode.rs:31-56): in-memory and disk variants.
 - `encode_jpeg`, `encode_png`, `encode_webp` (encode.rs:248+): per-format. WebP: lossless via `image::WebPEncoder::new_lossless` when `webp_quality == None`; lossy via the `webp` crate (feature `lossy-webp`) when `webp_quality == Some(q)`.
@@ -304,22 +316,23 @@ sources.par_iter().map(|src| {
 
 ### Where the platforms diverge
 
-| Aspect | Tauri | Web |
-|---|---|---|
-| Drop event source | `webview.onDragDropEvent` (native, OS-level) | DOM `dragenter/dragover/dragleave/drop` |
-| Path identity | Real filesystem `String` | Synthetic id minted by worker for each `File` |
-| Folder recursion | Server-side (`walkdir` in `ingest_paths`) | Client-side (`webkitGetAsEntry` recursion in `web/drop.ts:97-113`) |
-| `recursive` flag | Honored by `walkdir` (commands.rs:23) | No-op (folders already expanded at drop time) |
-| Heavy compute | `spawn_blocking` + rayon `par_iter` | Comlink worker calling `pixmill-wasm` |
-| Settings persistence | `app_config_dir()/settings.json` | localStorage |
-| Output | `write_to_path` into chosen directory | ZIP download via blob |
-| Progress | `Channel<ProgressUpdate>` IPC | Comlink callback proxy |
+| Aspect               | Tauri                                        | Web                                                                |
+| -------------------- | -------------------------------------------- | ------------------------------------------------------------------ |
+| Drop event source    | `webview.onDragDropEvent` (native, OS-level) | DOM `dragenter/dragover/dragleave/drop`                            |
+| Path identity        | Real filesystem `String`                     | Synthetic id minted by worker for each `File`                      |
+| Folder recursion     | Server-side (`walkdir` in `ingest_paths`)    | Client-side (`webkitGetAsEntry` recursion in `web/drop.ts:97-113`) |
+| `recursive` flag     | Honored by `walkdir` (commands.rs:23)        | No-op (folders already expanded at drop time)                      |
+| Heavy compute        | `spawn_blocking` + rayon `par_iter`          | Comlink worker calling `pixmill-wasm`                              |
+| Settings persistence | `app_config_dir()/settings.json`             | localStorage                                                       |
+| Output               | `write_to_path` into chosen directory        | ZIP download via blob                                              |
+| Progress             | `Channel<ProgressUpdate>` IPC                | Comlink callback proxy                                             |
 
 The `Platform` interface (`src/lib/platform/types.ts:51-73`) is what makes the rest of the app blind to which side it's running on. `DropZone.svelte`, `RunBar.svelte`, the stores, and the components never import from `tauri/` or `web/` directly.
 
 ## Code References
 
 ### Frontend (drag-drop + queue + invocation)
+
 - `src/lib/components/DropZone.svelte:13-33` — `toQueueItem` mapping `RawMetadata` → `QueueItem`
 - `src/lib/components/DropZone.svelte:35-45` — `ingest()` orchestration: platform call → queue.add → thumbnail kick-off
 - `src/lib/components/DropZone.svelte:57-66` — `onMount` wiring of `setupDropHandler`
@@ -338,6 +351,7 @@ The `Platform` interface (`src/lib/platform/types.ts:51-73`) is what makes the r
 - `src/lib/components/RunBar.svelte:31-54` — `runBatch` call with `onProgress` callback
 
 ### Tauri shell
+
 - `src-tauri/src/lib.rs:5-21` — command registration + plugin init
 - `src-tauri/src/commands.rs:17-33` — `ingest_paths` walk → filter → dedupe → metadata
 - `src-tauri/src/commands.rs:42-51` — `make_thumbnail` `spawn_blocking` wrapper
@@ -350,6 +364,7 @@ The `Platform` interface (`src/lib/platform/types.ts:51-73`) is what makes the r
 - `src-tauri/capabilities/default.json` — granted permissions (dialog, opener, core)
 
 ### pixmill-core pipeline
+
 - `crates/pixmill-core/src/lib.rs:1-19` — module declarations and public re-exports
 - `crates/pixmill-core/src/ingest.rs:8-27` — `collect_from_dir` + `filter_supported`
 - `crates/pixmill-core/src/metadata.rs:7-17` — `ImageMetadata` struct
@@ -379,11 +394,13 @@ The `Platform` interface (`src/lib/platform/types.ts:51-73`) is what makes the r
 **Svelte 5 store pattern.** Every store is `class FooStore { x = $state(...) }; export const foo = new FooStore()`. Files end in `.svelte.ts`. Mutations look like `queue.items.push(x)`, `batch.completed = n`, `queue.update(id, patch)` — direct property writes that the `$state` rune tracks. No `$store` prefix; no `subscribe`. Documented in CLAUDE.md:46-49.
 
 **Ingest filtering policy.** Supported input extensions live in three places that must agree:
+
 - `src/lib/platform/tauri/index.ts:16` — `imageExtensions = [...]` for the dialog filter.
 - `src/lib/platform/web/drop.ts:19` — `supportedExtensions = [...]`.
 - `crates/pixmill-core/src/formats.rs` — `is_supported_input` (the authoritative filter used at ingest time).
 
 **Concurrency model.**
+
 - Thumbnail generation: JS-side, capped at 4 concurrent `make_thumbnail` IPC calls (thumbnails.ts:4).
 - Batch processing: Rust-side, rayon `par_iter()` (default num_cpus), one `BatchItemResult` per file (pipeline.rs:171).
 - Progress accounting: `AtomicUsize::fetch_add` for the completed counter, sent through `Channel` (pipeline.rs:168-186).

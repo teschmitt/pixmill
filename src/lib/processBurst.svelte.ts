@@ -32,25 +32,20 @@ export async function processBurst(folderPath: string, paths: string[]): Promise
   watchFolders.startBatch(folderPath, paths.length);
 
   try {
-    await platform.runBatch(
-      paths,
-      outputDir,
-      $state.snapshot(settings.current),
-      (update) => {
-        const matching = queue.items.find((i) => i.path === update.item.source);
-        if (matching) {
-          if (update.item.error) {
-            queue.update(matching.id, { status: "error", error: update.item.error });
-          } else {
-            queue.update(matching.id, {
-              status: "done",
-              destination: update.item.destination ?? undefined,
-            });
-          }
+    await platform.runBatch(paths, outputDir, $state.snapshot(settings.current), (update) => {
+      const matching = queue.items.find((i) => i.path === update.item.source);
+      if (matching) {
+        if (update.item.error) {
+          queue.update(matching.id, { status: "error", error: update.item.error });
+        } else {
+          queue.update(matching.id, {
+            status: "done",
+            destination: update.item.destination ?? undefined,
+          });
         }
-        watchFolders.applyBurstProgress(folderPath, update);
       }
-    );
+      watchFolders.applyBurstProgress(folderPath, update);
+    });
   } finally {
     watchFolders.finishBatch(folderPath);
   }

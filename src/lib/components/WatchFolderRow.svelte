@@ -108,7 +108,8 @@
       </span>
       {#if folder.batchInFlight}
         <span class="processing">
-          Processing {folder.batchInFlight.completed}/{folder.batchInFlight.total}{#if folder.batchInFlight.errors > 0}
+          Processing {folder.batchInFlight.completed}/{folder.batchInFlight
+            .total}{#if folder.batchInFlight.errors > 0}
             · {folder.batchInFlight.errors} error(s)
           {/if}
         </span>

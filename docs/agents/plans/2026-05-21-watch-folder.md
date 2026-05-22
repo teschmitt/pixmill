@@ -71,11 +71,11 @@ Source research: `docs/agents/research/2026-05-21-file-import-and-processing-pip
    - Impact: new `src/lib/autoBurstCoalescer.ts` module; `processBurst.ts` replaces the originally-considered `processSingleFile.ts`; auto-process is always batched.
 
 10. **Per-folder batch state.** `WatchedFolderUi.batchInFlight?: { completed, total, errors }`, driven by `runBatch` progress callbacks.
-    - Why: the lifetime `filesAdded` counter doesn't answer "how many of *this* burst are done?"; the global `batch` store stays owned by `RunBar.run()`, so auto-process and manual batches never collide on shared state.
+    - Why: the lifetime `filesAdded` counter doesn't answer "how many of _this_ burst are done?"; the global `batch` store stays owned by `RunBar.run()`, so auto-process and manual batches never collide on shared state.
     - Impact: `WatchFolderRow.svelte` renders a compact progress bar when `batchInFlight` is `Some`; no sibling `autoBatch` store.
 
 11. **"Scan now" honors `autoProcess`.** When a folder has `autoProcess: true`, "Scan now" pushes scanned paths into the burst coalescer rather than terminating at `queue.add`.
-    - Why: `autoProcess` should mean "when this folder gains files, process them" regardless of *how* the files were noticed; otherwise a backlog-convert requires toggling auto-process off, scanning, running batch, toggling back on.
+    - Why: `autoProcess` should mean "when this folder gains files, process them" regardless of _how_ the files were noticed; otherwise a backlog-convert requires toggling auto-process off, scanning, running batch, toggling back on.
     - Impact: `WatchFolderRow.svelte` "Scan now" handler branches on `folder.autoProcess`.
 
 12. **Modify-aware reactivity.** `Modify(Data)` events on already-known paths flip `done`/`error` queue items back to `pending`; under auto-process, the modified path is fed through the coalescer.
@@ -187,11 +187,11 @@ A fourth ingest entry point — a long-lived `WatchManager` in the Tauri shell �
 
 `notify-debouncer-full` wraps the `notify` crate, which uses native OS APIs — not polling, not direct inode tracking. We use `RecommendedWatcher` so the right backend is picked per platform:
 
-| Platform | Backend | Push mechanism |
-|---|---|---|
-| macOS | FSEvents | Kernel stream, naturally recursive, path-keyed |
-| Linux | inotify | Kernel events per directory; the kernel tracks watches by inode + watch descriptor internally — we never see them |
-| Windows | `ReadDirectoryChangesW` | Per-directory handle, supports recursive natively |
+| Platform | Backend                 | Push mechanism                                                                                                    |
+| -------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| macOS    | FSEvents                | Kernel stream, naturally recursive, path-keyed                                                                    |
+| Linux    | inotify                 | Kernel events per directory; the kernel tracks watches by inode + watch descriptor internally — we never see them |
+| Windows  | `ReadDirectoryChangesW` | Per-directory handle, supports recursive natively                                                                 |
 
 Two platform-specific caveats the implementer needs to know:
 
@@ -204,6 +204,7 @@ We do **not** track inodes ourselves anywhere; the debouncer's path cache is key
 ## Abstractions and Code Reuse
 
 Reused as-is:
+
 - `pixmill_core::ingest::{collect_from_dir, filter_supported}` and `metadata::read` — the watcher thread calls these per stable event.
 - `pixmill_core::formats::is_supported_input` — filters watch events to image files.
 - `platform.ingest` — "Scan now" reuses the existing command rather than introducing a new one.
@@ -257,6 +258,7 @@ New surface:
 ## Logging & Observability
 
 The watcher thread runs detached from any command invocation, so failures need a visible trail:
+
 - **Frontend**: per-row `WatchFolderStatus` is the primary signal (badge in the UI). A counter shows how many files have been added since the row was created. Errors during ingest of a single file land in the queue as `error` items (existing behavior).
 - **Backend**: use `eprintln!` for non-fatal warnings from the watcher thread (matches the codebase's current logging level — no `log` crate yet). One line per registered folder at start time, one line per `notify` error.
 
@@ -279,6 +281,7 @@ Dependencies: None.
 Goal: ship the data model, persistence migration, Tauri commands, and the full UI — but no `notify` integration yet. "Scan now" works via the existing `platform.ingest(...)`; the live watcher is stubbed (commands accept folders and persist them, but no events are emitted).
 
 **Tasks**:
+
 - [x] Add `WatchedFolder { path: PathBuf, recursive: bool, auto_process: bool }` to `crates/pixmill-core/src/settings.rs` with `#[derive(Serialize, Deserialize, Clone, Debug)] #[serde(rename_all = "camelCase")]`. Re-export from `crates/pixmill-core/src/lib.rs`.
 - [x] Extend `PersistedState` in `src-tauri/src/persistence.rs` with `pub watched_folders: Vec<WatchedFolder>`, annotated `#[serde(default)]` so existing `settings.json` files load without the field.
 - [x] Create `src-tauri/src/watch.rs` containing:
@@ -320,14 +323,16 @@ Goal: ship the data model, persistence migration, Tauri commands, and the full U
 - [x] Update the output-dir picker flow (wherever `pickOutputFolder()` is wired to settings save — check `src/lib/components/RunBar.svelte` or settings panel; likely a sibling): before saving the new dir, call `platform.validateOutputDir(newPath)` and surface the Err to the user inline.
 
 **Automated Verification**:
+
 - [x] `cargo test -p pixmill-core` — existing 27 tests still pass. (11 unit + 16 e2e.)
-- [x] New `src-tauri/tests/persistence_migration.rs` (or inline in `persistence.rs`): deserialize a `settings.json` blob *without* `watchedFolders` succeeds with `watched_folders: vec![]`. (Inline in `persistence.rs`; **will run on macOS** — Linux sandbox can't compile `src-tauri` due to missing GTK system libs per CLAUDE.md.)
+- [x] New `src-tauri/tests/persistence_migration.rs` (or inline in `persistence.rs`): deserialize a `settings.json` blob _without_ `watchedFolders` succeeds with `watched_folders: vec![]`. (Inline in `persistence.rs`; **will run on macOS** — Linux sandbox can't compile `src-tauri` due to missing GTK system libs per CLAUDE.md.)
 - [x] New unit test in `src-tauri/src/watch.rs`: `is_path_overlap` returns true for identical paths, true for ancestor/descendant in both directions, false for siblings, false for cousins. Verify with both existing paths (tempdirs) and non-existent paths (lexical fallback). (Written; **will run on macOS**.)
 - [x] New unit test in `src-tauri/src/watch.rs`: `WatchManager::add` rejects a folder that overlaps a given output dir; `::add` rejects `auto_process: true` when output dir is None. (Written; **will run on macOS**.)
 - [x] `pnpm check` — frontend type-checks clean.
 - [x] `pnpm build` — static frontend builds without errors. Tauri AND web variants both build clean.
 
 **Manual Verification**:
+
 - [ ] Run `pnpm tauri dev`. Section "Watch folders" appears below the drop zone. The list is empty.
 - [ ] Click "Add watch folder…", pick a directory with a few JPEGs in it. Row appears. Click "Scan now". Queue fills with the JPEGs. Thumbnails generate.
 - [ ] Try to add the same folder again — should be deduped via the path equality check (or rejected with a clear message; specify which during implementation).
@@ -345,6 +350,7 @@ Dependencies: Phase 1.
 Goal: wire up `notify-debouncer-full`. New files in registered folders appear in the queue automatically. `auto_process` is still ignored on the JS side — Phase 3 enables it.
 
 **Tasks**:
+
 - [x] Add `notify-debouncer-full` to `src-tauri/Cargo.toml` `[dependencies]`. The latest stable release at implementation time; pin a minor version, e.g. `notify-debouncer-full = "0.5"` (verify and adjust at implementation time — must be compatible with whichever `notify` version it transitively pulls in).
 - [x] Flesh out `WatchManager` in `src-tauri/src/watch.rs`:
   - [x] Field `debouncer: Option<Debouncer<RecommendedWatcher, RecommendedCache>>`.
@@ -370,11 +376,13 @@ Goal: wire up `notify-debouncer-full`. New files in registered folders appear in
 - [x] Update `WatchFolderRow.svelte` to render the live status badge and the live counter. (Already implemented in Phase 1; reads `folder.status.kind` reactively.)
 
 **Automated Verification**:
+
 - [x] `cargo test -p pixmill_lib --tests`: new integration test `src-tauri/tests/watch_integration.rs` covers (a) `FileAdded` within 2s of a new JPEG appearing and (b) `Modify(Data)` does NOT re-emit `FileAdded` in Phase 2. (Test written using a public `EventSink` trait so an `mpsc::Sender` can stand in for the production `tauri::ipc::Channel`. **Will run on macOS** — Linux sandbox can't link against GTK system libs.)
 - [x] `pnpm check` passes.
 - [x] `cargo check` for the workspace (skip `src-tauri` on Linux sandbox per CLAUDE.md; will be verified on macOS).
 
 **Manual Verification**:
+
 - [ ] `pnpm tauri dev`. Add a watch folder pointing at an empty tempdir.
 - [ ] In Finder, copy a JPEG into that folder. Within ~500ms, a `pending` item appears in the queue with a thumbnail.
 - [ ] Copy a 30MB file (or simulate a slow copy with `dd ... bs=1M` over several seconds). Verify only one `pending` item appears, after the copy finishes — no mid-write decode errors.
@@ -436,11 +444,13 @@ Goal: honor `autoProcess` via a JS-side burst coalescer (decisions #9–11). Add
 - [x] Update `pixmill/CLAUDE.md`: add a "Watch folders" subsection under "Things that will trip you up" mentioning `notify-debouncer-full`, the 500ms debounce, `RecursiveMode`, the overlap guard, the burst coalescer (quiet/size/age caps), and the per-folder `batchInFlight` state.
 
 **Automated Verification**:
+
 - [x] `cargo test -p pixmill_lib --tests` passes including new unit tests in `watch.rs`: `add_watched_folder` overlap rejection (identical / ancestor / descendant; siblings & cousins Ok) and `validate_output_dir` overlap rejection. (Tests written; **will run on macOS** — Linux sandbox can't link against GTK.)
 - [x] New JS test for `AutoBurstCoalescer` (vitest): all four scenarios — quiet-window single flush, size-cap (50) + remainder, age-cap (10s) drip, inflight serialization. 4/4 pass via `pnpm test`.
 - [x] `pnpm check` passes.
 
 **Manual Verification**:
+
 - [ ] `pnpm tauri dev`. Set output dir to `~/Pictures/Out`. Add a watch folder at `~/Pictures/CameraDump`, recursive = true, auto-process = true.
 - [ ] Drop a single JPEG into the watch folder. Within ~1–2 seconds the folder row shows `Processing 1/1`, then clears; the processed output appears in `~/Pictures/Out`.
 - [ ] Drop 20 JPEGs into the watch folder at once. The folder row shows `Processing N/20` advancing as the batch progresses (one progress bar, not 20 independent ones); all complete; all outputs appear.
@@ -478,11 +488,13 @@ Goal: pick up in-place edits to known files (decision #12). Recover automaticall
 - [x] Update `pixmill/PLAN.md`: move "Watch folder" out of V2 backlog into the completed-phases table (one new row covering Phases 1–4).
 
 **Automated Verification**:
+
 - [x] New integration test in `src-tauri/tests/watch_integration.rs` for modify-aware (`watcher_emits_file_added_on_data_modify` — replaces the Phase 2 "is_ignored" test).
 - [x] New integration test for retry (`retry_watched_folder_attaches_after_creation`). Both written; **will run on macOS** — Linux sandbox can't link against GTK.
 - [x] `pnpm check` passes.
 
 **Manual Verification**:
+
 - [ ] `pnpm tauri dev`. Watch folder with auto-process OFF. Add a JPEG; it lands as `pending`. Click "Run batch"; it processes to `done`. Edit the JPEG in an external app and save over the top. Within ~1s, the queue row flips back to `pending`. Click "Run batch" again; the output reflects the edit.
 - [ ] Same setup with auto-process ON. Add a JPEG; it processes automatically. Edit and save. Within ~1s, the row flips to `pending`, then `processing`, then `done`; the output in the output dir reflects the edit.
 - [ ] Add a watch folder on an external drive (or removable USB stick). Unplug the drive. The row's status badge changes to `error` within ~1s. Plug the drive back in. Within ~30s, the status badge changes back to `watching` without user intervention; a JPEG added after replug appears as expected.

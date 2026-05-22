@@ -27,9 +27,7 @@ export type ResizeMode =
   | { kind: "maxLongEdge"; pixels: number }
   | { kind: "percentage"; percent: number };
 
-export type CompressionMode =
-  | { kind: "manual" }
-  | { kind: "targetFileSize"; kilobytes: number };
+export type CompressionMode = { kind: "manual" } | { kind: "targetFileSize"; kilobytes: number };
 
 export type CropMode =
   | { kind: "none" }

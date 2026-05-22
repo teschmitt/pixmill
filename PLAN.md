@@ -14,19 +14,19 @@ ships next: click a thumbnail to see source vs. processed-with-current-settings.
 
 ## Phases (all complete)
 
-| #   | Phase                                             | Notes                                       |
-| --- | ------------------------------------------------- | ------------------------------------------- |
-| 1   | Scaffold Tauri 2 + SvelteKit + workspace          | `pixmill/`                                  |
-| 2   | File ingestion (drag-drop, file/folder pickers)   | recursive folder option                     |
-| 3   | Rust decode + thumbnail generation                | base64 data: URLs over IPC                  |
-| 4   | Thumbnail grid UI                                 | CSS grid, hover-to-remove, status badges    |
-| 5   | Settings panel (resize / crop / rotate / format)  | all controls live                           |
-| 6   | Batch pipeline (rayon + Tauri `Channel` progress) | JPEG/PNG/WebP                               |
-| 7   | AVIF + HEIC support                               | behind Cargo features `avif-decode`, `heic` |
-| 8   | EXIF preservation                                 | orientation baked into pixels               |
-| 9   | Progress UI + error handling                      | per-file + overall                          |
-| 10  | Sticky settings persistence                       | JSON in `app_config_dir`                    |
-| 11  | Cross-platform packaging                          | `tauri.conf.json` configured                |
+| #   | Phase                                             | Notes                                                                                |
+| --- | ------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 1   | Scaffold Tauri 2 + SvelteKit + workspace          | `pixmill/`                                                                           |
+| 2   | File ingestion (drag-drop, file/folder pickers)   | recursive folder option                                                              |
+| 3   | Rust decode + thumbnail generation                | base64 data: URLs over IPC                                                           |
+| 4   | Thumbnail grid UI                                 | CSS grid, hover-to-remove, status badges                                             |
+| 5   | Settings panel (resize / crop / rotate / format)  | all controls live                                                                    |
+| 6   | Batch pipeline (rayon + Tauri `Channel` progress) | JPEG/PNG/WebP                                                                        |
+| 7   | AVIF + HEIC support                               | behind Cargo features `avif-decode`, `heic`                                          |
+| 8   | EXIF preservation                                 | orientation baked into pixels                                                        |
+| 9   | Progress UI + error handling                      | per-file + overall                                                                   |
+| 10  | Sticky settings persistence                       | JSON in `app_config_dir`                                                             |
+| 11  | Cross-platform packaging                          | `tauri.conf.json` configured                                                         |
 | 12  | Watch folder (live filesystem ingest)             | notify-debouncer-full; auto-process via JS burst coalescer; modify-aware + 30s retry |
 
 ## V2 backlog
