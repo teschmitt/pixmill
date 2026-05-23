@@ -8,6 +8,16 @@ New entries are prepended by the release workflow when a PR carrying a
 `release:major|minor|patch` label merges to `main`. See `README.md` →
 **Release process** for details.
 
+## [1.1.0] - 2026-05-23
+
+<!-- Release notes generated using configuration in .github/release.yml at main -->
+
+### Features
+
+- Add bundled user docs and /help route by @teschmitt in https://github.com/teschmitt/pixmill/pull/3
+
+**Full Changelog**: https://github.com/teschmitt/pixmill/compare/v1.0.1...v1.1.0
+
 ## [1.0.1] - 2026-05-23
 
 <!-- Release notes generated using configuration in .github/release.yml at main -->
