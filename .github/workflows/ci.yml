@@ -56,19 +56,16 @@ jobs:
           key: ${{ runner.os }}-cargo-ci-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: ${{ runner.os }}-cargo-ci-
 
+      # wasm-pack is needed because make check's type-check target
+      # depends on $(WASM_PKG); see Makefile.
       - name: Install wasm-pack
         run: command -v wasm-pack || cargo install wasm-pack --locked
 
       - run: pnpm install --frozen-lockfile
 
-      # `pnpm check` (svelte-check) walks all imports, including
-      # src/lib/platform/web/worker.ts which statically imports
-      # `$lib/wasm/pkg/pixmill_wasm`. Build the wasm package first so
-      # svelte-check can resolve its type declarations.
-      - run: pnpm build:wasm
-
-      # `make check` = fmt-check + lint + type-check + test. Matches the
-      # local pre-commit hook so CI catches anything that bypassed it.
+      # `make check` = fmt-check + lint + type-check + test. The
+      # type-check target builds wasm-pack output as a prereq so
+      # svelte-check can resolve `$lib/wasm/pkg/pixmill_wasm`.
       - run: make check
 
   build-web:
