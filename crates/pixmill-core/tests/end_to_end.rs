@@ -320,7 +320,9 @@ fn target_size_rejects_png_output() {
     s.compression = CompressionMode::TargetFileSize { kilobytes: 100 };
     s.output_format = OutputFormat::Png;
 
-    let err = s.validate().expect_err("PNG + target size must be rejected");
+    let err = s
+        .validate()
+        .expect_err("PNG + target size must be rejected");
     let msg = format!("{err}");
     assert!(
         msg.contains("JPEG or WebP"),

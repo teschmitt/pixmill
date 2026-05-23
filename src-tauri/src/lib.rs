@@ -40,15 +40,14 @@ pub fn run() {
             let retry_handle = app.handle().clone();
             std::thread::spawn(move || loop {
                 std::thread::sleep(RETRY_POLL_INTERVAL);
-                let to_retry: Vec<pixmill_core::WatchedFolder> = match retry_handle
-                    .try_state::<Mutex<WatchManager>>()
-                {
-                    Some(state) => match state.lock() {
-                        Ok(mgr) => mgr.error_folders(),
-                        Err(_) => continue,
-                    },
-                    None => continue,
-                };
+                let to_retry: Vec<pixmill_core::WatchedFolder> =
+                    match retry_handle.try_state::<Mutex<WatchManager>>() {
+                        Some(state) => match state.lock() {
+                            Ok(mgr) => mgr.error_folders(),
+                            Err(_) => continue,
+                        },
+                        None => continue,
+                    };
                 for folder in to_retry {
                     if let Some(state) = retry_handle.try_state::<Mutex<WatchManager>>() {
                         if let Ok(mut mgr) = state.lock() {
