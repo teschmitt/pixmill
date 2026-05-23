@@ -15,6 +15,7 @@
   import { watchFolders } from "$lib/stores/watchFolders.svelte";
   import { requestPendingThumbnails } from "$lib/thumbnails";
   import type { WatchEvent } from "$lib/types";
+  import { resolve } from "$app/paths";
 
   function handleWatchEvent(event: WatchEvent) {
     if (event.kind === "fileAdded") {
@@ -70,7 +71,10 @@
 <main class="app">
   <header class="topbar">
     <h1>Pixmill</h1>
-    <div class="muted">{queue.items.length} files queued</div>
+    <div class="topbar-right">
+      <div class="muted">{queue.items.length} files queued</div>
+      <a class="help-link" href={resolve("/help")} title="Help" aria-label="Help">?</a>
+    </div>
   </header>
 
   <div class="layout">
@@ -95,36 +99,6 @@
 </main>
 
 <style>
-  :global(:root) {
-    color-scheme: light dark;
-    --bg: #fafafa;
-    --panel: #ffffff;
-    --border: #e2e2e2;
-    --text: #111;
-    --muted: #666;
-    --accent: #396cd8;
-  }
-  @media (prefers-color-scheme: dark) {
-    :global(:root) {
-      --bg: #1a1a1a;
-      --panel: #232323;
-      --border: #333;
-      --text: #f0f0f0;
-      --muted: #999;
-      --accent: #6b8eff;
-    }
-  }
-  :global(html, body) {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family:
-      system-ui,
-      -apple-system,
-      Segoe UI,
-      Roboto,
-      sans-serif;
-  }
   .app {
     display: flex;
     flex-direction: column;
@@ -146,6 +120,29 @@
   .muted {
     color: var(--muted);
     font-size: 13px;
+  }
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .help-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .help-link:hover {
+    color: var(--accent);
+    border-color: var(--accent);
   }
   .layout {
     display: grid;

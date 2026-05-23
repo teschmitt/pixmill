@@ -44,3 +44,36 @@
 </script>
 
 {@render children()}
+
+<style>
+  :global(:root) {
+    color-scheme: light dark;
+    --bg: #fafafa;
+    --panel: #ffffff;
+    --border: #e2e2e2;
+    --text: #111;
+    --muted: #666;
+    --accent: #396cd8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :global(:root) {
+      --bg: #1a1a1a;
+      --panel: #232323;
+      --border: #333;
+      --text: #f0f0f0;
+      --muted: #999;
+      --accent: #6b8eff;
+    }
+  }
+  :global(html, body) {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family:
+      system-ui,
+      -apple-system,
+      Segoe UI,
+      Roboto,
+      sans-serif;
+  }
+</style>
