@@ -31,6 +31,19 @@ jobs:
       - name: Install Rust toolchain
         run: rustup show active-toolchain
 
+      # `make lint` runs `cargo clippy --workspace`, which pulls in the
+      # src-tauri crate and its GTK/WebKit transitives. Mirror the build-
+      # tauri Linux deps install from release.yml so clippy can link.
+      - name: Install Linux build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev
+
       - name: Cache Cargo
         uses: actions/cache@v4
         with:
