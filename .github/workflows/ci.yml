@@ -44,17 +44,28 @@ jobs:
             patchelf \
             libgtk-3-dev
 
-      - name: Cache Cargo
+      - name: Cache Cargo + wasm-pack
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin/wasm-pack
+            ~/.cache/.wasm-pack
             target
           key: ${{ runner.os }}-cargo-ci-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: ${{ runner.os }}-cargo-ci-
 
+      - name: Install wasm-pack
+        run: command -v wasm-pack || cargo install wasm-pack --locked
+
       - run: pnpm install --frozen-lockfile
+
+      # `pnpm check` (svelte-check) walks all imports, including
+      # src/lib/platform/web/worker.ts which statically imports
+      # `$lib/wasm/pkg/pixmill_wasm`. Build the wasm package first so
+      # svelte-check can resolve its type declarations.
+      - run: pnpm build:wasm
 
       # `make check` = fmt-check + lint + type-check + test. Matches the
       # local pre-commit hook so CI catches anything that bypassed it.
