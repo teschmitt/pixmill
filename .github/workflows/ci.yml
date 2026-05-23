@@ -31,20 +31,41 @@ jobs:
       - name: Install Rust toolchain
         run: rustup show active-toolchain
 
-      - name: Cache Cargo
+      # `make lint` runs `cargo clippy --workspace`, which pulls in the
+      # src-tauri crate and its GTK/WebKit transitives. Mirror the build-
+      # tauri Linux deps install from release.yml so clippy can link.
+      - name: Install Linux build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libgtk-3-dev
+
+      - name: Cache Cargo + wasm-pack
         uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin/wasm-pack
+            ~/.cache/.wasm-pack
             target
           key: ${{ runner.os }}-cargo-ci-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: ${{ runner.os }}-cargo-ci-
 
+      # wasm-pack is needed because make check's type-check target
+      # depends on $(WASM_PKG); see Makefile.
+      - name: Install wasm-pack
+        run: command -v wasm-pack || cargo install wasm-pack --locked
+
       - run: pnpm install --frozen-lockfile
 
-      # `make check` = fmt-check + lint + type-check + test. Matches the
-      # local pre-commit hook so CI catches anything that bypassed it.
+      # `make check` = fmt-check + lint + type-check + test. The
+      # type-check target builds wasm-pack output as a prereq so
+      # svelte-check can resolve `$lib/wasm/pkg/pixmill_wasm`.
       - run: make check
 
   build-web:

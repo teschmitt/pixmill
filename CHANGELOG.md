@@ -13,10 +13,12 @@ New entries are prepended by the release workflow when a PR carrying a
 <!-- Release notes generated using configuration in .github/release.yml at main -->
 
 ### Breaking changes
-* Add semver release workflow by @teschmitt in https://github.com/teschmitt/pixmill/pull/1
+
+- Add semver release workflow by @teschmitt in https://github.com/teschmitt/pixmill/pull/1
 
 ## New Contributors
-* @teschmitt made their first contribution in https://github.com/teschmitt/pixmill/pull/1
+
+- @teschmitt made their first contribution in https://github.com/teschmitt/pixmill/pull/1
 
 **Full Changelog**: https://github.com/teschmitt/pixmill/commits/v1.0.0
 

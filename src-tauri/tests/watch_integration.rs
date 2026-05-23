@@ -86,8 +86,7 @@ fn watcher_emits_file_added_for_new_jpeg() {
     std::thread::sleep(Duration::from_millis(200));
 
     let written = write_red_jpeg(&dir, "fresh.jpg", 16, 16);
-    let observed = recv_first_file_added(&rx, Duration::from_secs(2))
-        .expect("FileAdded within 2s");
+    let observed = recv_first_file_added(&rx, Duration::from_secs(2)).expect("FileAdded within 2s");
     assert_eq!(PathBuf::from(observed.0), dir);
     assert_eq!(PathBuf::from(observed.1), written);
 
@@ -118,8 +117,7 @@ fn watcher_emits_file_added_on_data_modify() {
 
     // First write is a Create — expect one FileAdded.
     let path = write_red_jpeg(&dir, "edit.jpg", 16, 16);
-    let first = recv_first_file_added(&rx, Duration::from_secs(2))
-        .expect("initial FileAdded");
+    let first = recv_first_file_added(&rx, Duration::from_secs(2)).expect("initial FileAdded");
     assert_eq!(PathBuf::from(first.1), path);
 
     // Overwrite the file in place with different bytes. Phase 4 promotes
@@ -137,10 +135,7 @@ fn watcher_emits_file_added_on_data_modify() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-fn recv_status(
-    rx: &mpsc::Receiver<WatchEvent>,
-    timeout: Duration,
-) -> Option<WatchFolderStatus> {
+fn recv_status(rx: &mpsc::Receiver<WatchEvent>, timeout: Duration) -> Option<WatchFolderStatus> {
     let deadline = std::time::Instant::now() + timeout;
     while std::time::Instant::now() < deadline {
         let remaining = deadline.saturating_duration_since(std::time::Instant::now());
@@ -185,8 +180,7 @@ fn retry_watched_folder_attaches_after_creation() {
     // First `ensure_running` boot attempt should land an Error status.
     mgr.ensure_running().unwrap();
 
-    let status = recv_status(&rx, Duration::from_secs(2))
-        .expect("initial FolderStatus");
+    let status = recv_status(&rx, Duration::from_secs(2)).expect("initial FolderStatus");
     assert!(
         matches!(status, WatchFolderStatus::Error { .. }),
         "expected Error status for missing path, got {status:?}"
@@ -196,8 +190,7 @@ fn retry_watched_folder_attaches_after_creation() {
     std::fs::create_dir_all(&dir).unwrap();
     mgr.retry_folder(&dir);
 
-    let status = recv_status(&rx, Duration::from_secs(2))
-        .expect("retry FolderStatus");
+    let status = recv_status(&rx, Duration::from_secs(2)).expect("retry FolderStatus");
     assert!(
         matches!(status, WatchFolderStatus::Watching),
         "expected Watching after retry, got {status:?}"
@@ -206,8 +199,8 @@ fn retry_watched_folder_attaches_after_creation() {
     // And a Create should now reach us.
     std::thread::sleep(Duration::from_millis(200));
     let written = write_red_jpeg(&dir, "after.jpg", 16, 16);
-    let observed = recv_first_file_added(&rx, Duration::from_secs(2))
-        .expect("FileAdded after retry");
+    let observed =
+        recv_first_file_added(&rx, Duration::from_secs(2)).expect("FileAdded after retry");
     assert_eq!(PathBuf::from(observed.1), written);
 
     let _ = std::fs::remove_dir_all(&parent);

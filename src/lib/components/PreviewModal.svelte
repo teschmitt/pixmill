@@ -35,12 +35,12 @@
 
   // Natural image dims. Seeded from metadata; img.onload corrects to post-orientation
   // values (modern browsers apply EXIF orientation to naturalWidth/Height).
-  let sourceNatural = $state({ w: 0, h: 0 });
+  // Writable $derived: the metadata reseeds whenever `item` changes, but
+  // img.onload below assigns directly to override with the post-orientation
+  // values until the next item swap.
+  let sourceNatural = $derived({ w: item.width ?? 0, h: item.height ?? 0 });
   let previewNatural = $state({ w: 0, h: 0 });
 
-  $effect(() => {
-    sourceNatural = { w: item.width ?? 0, h: item.height ?? 0 };
-  });
   $effect(() => {
     if (preview) previewNatural = { w: preview.width, h: preview.height };
   });

@@ -1,0 +1,88 @@
+name: Pages
+
+# Fires when a `vX.Y.Z` tag lands on the repo. The `release` job in
+# `release.yml` pushes that tag at the end of every labeled merge, so a
+# successful release ⇒ a fresh Pages deploy automatically.
+#
+# Why a separate workflow: deploying from `release.yml` would mean the
+# workflow ref is `refs/pull/N/merge` (because it's triggered by
+# `pull_request: closed`), which the `github-pages` environment rejects.
+# Triggering off the tag push gives us `refs/tags/v*`, which the
+# environment can be configured to allow.
+#
+# Prereq: the tag push in `release.yml` must be authenticated with a PAT
+# or GitHub App token via `secrets.RELEASE_TOKEN`. Tags pushed by the
+# default `GITHUB_TOKEN` do not trigger downstream workflows.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or commit to deploy"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+    env:
+      BASE_PATH: /${{ github.event.repository.name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        run: |
+          rustup show active-toolchain
+          rustup target add wasm32-unknown-unknown
+
+      - name: Cache Cargo + wasm-pack
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/wasm-pack
+            ~/.cache/.wasm-pack
+            target
+          key: ${{ runner.os }}-cargo-web-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-web-
+
+      - name: Install wasm-pack
+        run: command -v wasm-pack || cargo install wasm-pack --locked
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build:web
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build
+
+  deploy-pages:
+    needs: build-web
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

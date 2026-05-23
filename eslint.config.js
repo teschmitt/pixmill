@@ -46,6 +46,12 @@ export default ts.config(
           ],
         },
       ],
+      // `_foo` marks args/locals that are intentionally unused — e.g. stub
+      // signatures in src/lib/platform/web/index.ts that throw notSupported().
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+      ],
     },
   },
   {

@@ -284,12 +284,7 @@ impl WatchManager {
         };
         // Re-watch if recursive mode flipped; auto-process is purely JS-side.
         if recursive_changed {
-            let folder = self
-                .registered
-                .lock()
-                .unwrap()
-                .get(path)
-                .cloned();
+            let folder = self.registered.lock().unwrap().get(path).cloned();
             if let Some(folder) = folder {
                 if let Some(debouncer) = self.debouncer.as_mut() {
                     let _ = debouncer.unwatch(path);
@@ -379,10 +374,7 @@ impl WatchManager {
                 }
                 Err(e) => {
                     let msg = humanize_notify_error(&e);
-                    eprintln!(
-                        "[watch] notify error for {}: {msg}",
-                        folder.path.display()
-                    );
+                    eprintln!("[watch] notify error for {}: {msg}", folder.path.display());
                     WatchFolderStatus::Error { message: msg }
                 }
             },
