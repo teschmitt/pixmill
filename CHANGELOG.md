@@ -8,6 +8,18 @@ New entries are prepended by the release workflow when a PR carrying a
 `release:major|minor|patch` label merges to `main`. See `README.md` →
 **Release process** for details.
 
+## [1.0.0] - 2026-05-22
+
+<!-- Release notes generated using configuration in .github/release.yml at main -->
+
+### Breaking changes
+* Add semver release workflow by @teschmitt in https://github.com/teschmitt/pixmill/pull/1
+
+## New Contributors
+* @teschmitt made their first contribution in https://github.com/teschmitt/pixmill/pull/1
+
+**Full Changelog**: https://github.com/teschmitt/pixmill/commits/v1.0.0
+
 ## [0.1.0] - 2026-05-22
 
 Initial alpha. The core pipeline (JPEG / PNG / WebP) is tested and working;
