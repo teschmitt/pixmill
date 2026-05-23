@@ -4,9 +4,9 @@ Drop a pile of photos, set resize / crop / rotate, hit Run. Cross-platform
 desktop app built with Tauri 2 and a Rust image pipeline — small binary, no
 Electron, no servers.
 
-> **Status:** alpha. Core pipeline (JPEG / PNG / WebP) is tested and working.
-> AVIF + HEIC need optional system libs. See [`PLAN.md`](./PLAN.md) for what's
-> shipped and what's next.
+> **Status:** v1 shipped. Core pipeline (JPEG / PNG / WebP) is tested and
+> working; AVIF + HEIC need optional system libs. See [`PLAN.md`](./PLAN.md)
+> for the v2 backlog.
 
 ## Features
 
@@ -22,10 +22,11 @@ Electron, no servers.
 - 🔁 Sticky settings — your last-used configuration restores on launch
 - 🖥 Native window: macOS · Windows · Linux. ~6–15 MB release binary.
 - 🌐 Same pipeline runs in the browser via WebAssembly (see [Web build](#web-build))
+- 📖 Bundled in-app docs at `/help` — getting-started, operations, watch folders, preview, troubleshooting
 
 ## Quick start
 
-Requires **Rust 1.78+**, **Node 20+**, and **pnpm**.
+Requires **Rust 1.95.0** (pinned by `rust-toolchain.toml`), **Node 20+**, and **pnpm**.
 
 ```sh
 git clone <repo-url>
@@ -69,10 +70,12 @@ the `wasm32-unknown-unknown` target, and `wasm-pack` on `PATH`. Install with
 `github.com/WebAssembly/binaryen/releases` and caches it under
 `~/.cache/.wasm-pack/`.
 
-Deployment runs on **GitHub Pages** as part of the release workflow —
-see [Release process](#release-process). Every release rebuilds the wasm +
-frontend and publishes `build/` to Pages so the hosted demo always matches
-the latest tagged version. PRs run a smoke build via
+Deployment runs on **GitHub Pages** via a dedicated
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml) that triggers on
+the `v*` tag push the release workflow creates — see
+[Release process](#release-process). Each release rebuilds the wasm + frontend
+and publishes `build/` to Pages so the hosted demo always matches the latest
+tagged version. PRs run a smoke build via
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) but don't deploy.
 The workflow sets `BASE_PATH=/<repo>` so SvelteKit's absolute URLs resolve
 under `https://<user>.github.io/<repo>/`; binding a custom domain lets you
@@ -84,9 +87,10 @@ that case).
 Releases are driven by PR labels.
 [`.github/workflows/release.yml`](.github/workflows/release.yml) watches for
 PRs merging into `main` and, when it sees a `release:major|minor|patch` label,
-bumps versions, tags, builds desktop bundles for macOS / Windows / Linux,
-publishes a GitHub Release with auto-generated notes, and redeploys the web
-build to Pages.
+bumps versions, tags, builds desktop bundles for macOS / Windows / Linux, and
+publishes a GitHub Release with auto-generated notes. The tag push then
+triggers [`pages.yml`](.github/workflows/pages.yml), which rebuilds the wasm +
+frontend and redeploys the web demo to Pages.
 
 **Cutting a release**: add exactly one of these labels to your PR before
 merging:

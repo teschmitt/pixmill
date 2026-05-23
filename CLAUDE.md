@@ -112,6 +112,11 @@ make check              # fmt-check + lint + type-check + test (same as CI)
   state. Crop is a known caveat — the preview is a sub-region of the source,
   so "same normalized point" doesn't line up content-wise. Fixing it needs a
   crop-aware coordinate transform; see the comment in `PreviewModal.svelte`.
+- **In-app docs at `/help`**: markdown lives in `src/lib/docs/*.md` and is
+  rendered by `src/routes/help/+page.svelte`. Each file renders in isolation
+  (sidebar picks one at a time), so cross-doc anchors like `#watch-folders`
+  in another file won't work — keep links within a single doc, or reference
+  the sidebar topic in prose.
 - **The `image` crate types**: a `DynamicImage` is the right working type. Pixel
   type detection for `fast_image_resize` uses `DynamicImage::pixel_type()` from
   the `IntoImageView` trait — that trait must be in scope at the call site.
@@ -166,9 +171,10 @@ See `PLAN.md` for the phase-by-phase status and the v2 backlog. The short versio
 JPEG / PNG / WebP work end-to-end with resize/crop/rotate, parallel processing,
 progress streaming, EXIF orientation, sticky settings, target-file-size
 compression (binary-search on encoder quality), lossy + lossless WebP, watch
-folders with optional auto-process, side-by-side preview, and a wasm web build
-deployed via GitHub Pages. AVIF/HEIC decode is gated behind Cargo features and
-needs system libs (`dav1d`, `libheif`).
+folders with optional auto-process, side-by-side preview, a wasm web build
+deployed via GitHub Pages, and bundled in-app docs at `/help`. AVIF/HEIC
+decode is gated behind Cargo features and needs system libs (`dav1d`,
+`libheif`).
 
 Remaining v2 work in `PLAN.md`: strip-EXIF privacy option, full EXIF blob copy
 on output (today only orientation is preserved), and named presets.

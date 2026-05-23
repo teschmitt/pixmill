@@ -4,13 +4,15 @@ Current development plan and backlog for Pixmill.
 
 ## Status
 
-MVP scaffolded and end-to-end functional for JPEG / PNG / WebP (lossy + lossless).
-Target-file-size compression (binary-search on encoder quality) shipped as
-`CompressionMode::TargetFileSize` — a separate enum from `ResizeMode`, since
-it's an encoder concern, not a pixel-resize one. Side-by-side preview modal
-ships next: click a thumbnail to see source vs. processed-with-current-settings.
-27 tests pass in `pixmill-core`. Frontend type-checks clean. Smoke-tested on macOS
-2026-05-20 — golden path (queue, settings persistence, batch run) works.
+v1.1.0 shipped (2026-05-23). The v1 backlog is done: JPEG / PNG / WebP
+(lossy + lossless), target-file-size compression
+(`CompressionMode::TargetFileSize`, binary-search on encoder quality, a
+separate enum from `ResizeMode` since it's an encoder concern), watch folders
+with optional auto-process, side-by-side preview modal (click a thumbnail to
+see source vs. processed-with-current-settings), wasm web build deployed to
+GitHub Pages, and bundled in-app docs at `/help`. 27 tests pass in
+`pixmill-core`; frontend type-checks clean; CI gates `make check` on a built
+wasm pkg.
 
 ## Phases (all complete)
 

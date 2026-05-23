@@ -43,7 +43,7 @@ button is disabled until both the queue and the output folder are set.
 The path probably became unreachable. Click **Retry now** on the row, or
 wait — a background task retries error folders every 30 seconds. On Linux,
 errors after watching many recursive folders are usually inotify-limit
-exhaustion. See [Watch folders](#watch-folders) for the sysctl knob.
+exhaustion — bump it with `sysctl fs.inotify.max_user_watches=524288`.
 
 ## Where do my settings live?
 
