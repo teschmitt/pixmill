@@ -9,8 +9,11 @@ on:
     types: [closed]
     branches: [main]
 
-# Default-deny. Individual jobs widen as needed: `release` writes to the repo
-# and creates the GitHub Release; `deploy-pages` uses OIDC.
+# Default-deny. Individual jobs widen as needed: `release` writes to the
+# repo, `build-tauri` writes to the GitHub Release. Pages deploys live in
+# `pages.yml` — keeping them out of this workflow avoids the
+# `github-pages` environment rejecting `refs/pull/N/merge`, which is the
+# ref a `pull_request: closed` trigger gives the whole run.
 permissions:
   contents: read
 
@@ -165,6 +168,12 @@ jobs:
       - name: Install Rust toolchain
         run: |
           rustup show active-toolchain
+          # wasm32 is needed even on the desktop build: Tauri's
+          # `beforeBuildCommand` runs the full Vite build, which statically
+          # processes `src/lib/platform/web/worker.ts` and its
+          # `import "$lib/wasm/pkg/pixmill_wasm"` before the
+          # `VITE_PLATFORM=tauri` tree-shaking eliminates the web branch.
+          rustup target add wasm32-unknown-unknown
           if [ -n "${{ matrix.rust_targets }}" ]; then
             IFS=',' read -ra TARGETS <<< "${{ matrix.rust_targets }}"
             for t in "${TARGETS[@]}"; do rustup target add "$t"; done
@@ -190,12 +199,24 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin/wasm-pack
+            ~/.cargo/bin/wasm-pack.exe
+            ~/.cache/.wasm-pack
             src-tauri/target
             target
           key: ${{ runner.os }}-tauri-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: ${{ runner.os }}-tauri-
 
+      - name: Install wasm-pack
+        run: command -v wasm-pack || cargo install wasm-pack --locked
+        shell: bash
+
       - run: pnpm install --frozen-lockfile
+
+      # Prebuild the wasm crate so Vite's worker plugin can resolve
+      # `$lib/wasm/pkg/pixmill_wasm` during the Tauri frontend build —
+      # the file has to exist on disk before tree-shaking decides to drop it.
+      - run: pnpm build:wasm
 
       # tauri-action builds the app, creates the Release on first matrix
       # entry, and uploads each platform's bundles as release assets.
@@ -210,60 +231,7 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
 
-  build-web:
-    needs: release
-    runs-on: ubuntu-latest
-    env:
-      BASE_PATH: /${{ github.event.repository.name }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.release.outputs.tag }}
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install Rust toolchain
-        run: |
-          rustup show active-toolchain
-          rustup target add wasm32-unknown-unknown
-
-      - name: Cache Cargo + wasm-pack
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin/wasm-pack
-            ~/.cache/.wasm-pack
-            target
-          key: ${{ runner.os }}-cargo-web-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
-          restore-keys: ${{ runner.os }}-cargo-web-
-
-      - name: Install wasm-pack
-        run: command -v wasm-pack || cargo install wasm-pack --locked
-
-      - run: pnpm install --frozen-lockfile
-
-      - run: pnpm build:web
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: build
-
-  deploy-pages:
-    needs: build-web
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+  # NOTE: the GitHub Pages deploy lives in `pages.yml`, triggered by
+  # pushes to `main`. Hosting it here would tie the deploy to
+  # `refs/pull/N/merge` (the ref `pull_request: closed` sets for the
+  # whole run), which the `github-pages` environment rejects.

@@ -1,0 +1,83 @@
+name: Pages
+
+# Deploy the web build to GitHub Pages whenever `main` advances. Bot-pushed
+# commits (from `release.yml` using `GITHUB_TOKEN`) won't fire this, so a
+# `workflow_dispatch` trigger is provided for manual redeploys after a
+# release. Setting `secrets.RELEASE_TOKEN` in `release.yml` makes the
+# release commit fire this too.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Default-deny. The deploy job widens to `pages: write` + `id-token: write`
+# for `actions/deploy-pages`.
+permissions:
+  contents: read
+
+# Pages serves a single site per repo; don't queue overlapping deploys.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # SvelteKit prefixes every absolute URL with `kit.paths.base`. GH Pages
+    # serves the site at `<user>.github.io/<repo>/`, so we set BASE_PATH to
+    # `/<repo>` at build time. If you bind a custom domain (which serves
+    # at the root), set this to an empty string.
+    env:
+      BASE_PATH: /${{ github.event.repository.name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        run: |
+          rustup show active-toolchain
+          rustup target add wasm32-unknown-unknown
+
+      - name: Cache Cargo + wasm-pack
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/wasm-pack
+            ~/.cache/.wasm-pack
+            target
+          key: ${{ runner.os }}-cargo-web-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: ${{ runner.os }}-cargo-web-
+
+      - name: Install wasm-pack
+        run: command -v wasm-pack || cargo install wasm-pack --locked
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build:web
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
