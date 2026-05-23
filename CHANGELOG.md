@@ -8,6 +8,16 @@ New entries are prepended by the release workflow when a PR carrying a
 `release:major|minor|patch` label merges to `main`. See `README.md` →
 **Release process** for details.
 
+## [1.0.1] - 2026-05-23
+
+<!-- Release notes generated using configuration in .github/release.yml at main -->
+
+### Fixes
+
+- Fix Tauri build and Pages deploy in release workflow by @teschmitt in https://github.com/teschmitt/pixmill/pull/2
+
+**Full Changelog**: https://github.com/teschmitt/pixmill/compare/v1.0.0...v1.0.1
+
 ## [1.0.0] - 2026-05-22
 
 <!-- Release notes generated using configuration in .github/release.yml at main -->

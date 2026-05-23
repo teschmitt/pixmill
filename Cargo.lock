@@ -2893,7 +2893,7 @@ dependencies = [
 
 [[package]]
 name = "pixmill"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "base64 0.22.1",
  "image",
@@ -2909,7 +2909,7 @@ dependencies = [
 
 [[package]]
 name = "pixmill-core"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "base64 0.22.1",
  "fast_image_resize",
@@ -2926,7 +2926,7 @@ dependencies = [
 
 [[package]]
 name = "pixmill-wasm"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "base64 0.22.1",
  "console_error_panic_hook",
