@@ -9,8 +9,8 @@ on:
     types: [closed]
     branches: [main]
 
-# Default-deny. Individual jobs widen as needed: `release` writes to the repo
-# and creates the GitHub Release; `deploy-pages` uses OIDC.
+# Default-deny. Individual jobs widen as needed: `release` writes to the
+# repo, `build-tauri` writes to the GitHub Release.
 permissions:
   contents: read
 
@@ -165,6 +165,11 @@ jobs:
       - name: Install Rust toolchain
         run: |
           rustup show active-toolchain
+          # wasm32 is needed because tauri's `beforeBuildCommand` runs the
+          # full vite build, which statically analyses the web worker and
+          # requires the wasm-pack output to exist on disk even though
+          # VITE_PLATFORM=tauri dead-code-eliminates it at runtime.
+          rustup target add wasm32-unknown-unknown
           if [ -n "${{ matrix.rust_targets }}" ]; then
             IFS=',' read -ra TARGETS <<< "${{ matrix.rust_targets }}"
             for t in "${TARGETS[@]}"; do rustup target add "$t"; done
@@ -190,12 +195,22 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/bin/wasm-pack
+            ~/.cache/.wasm-pack
             src-tauri/target
             target
           key: ${{ runner.os }}-tauri-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: ${{ runner.os }}-tauri-
 
+      - name: Install wasm-pack
+        run: command -v wasm-pack || cargo install wasm-pack --locked
+        shell: bash
+
       - run: pnpm install --frozen-lockfile
+
+      # Prebuild the wasm package so vite's worker plugin can resolve
+      # `$lib/wasm/pkg/pixmill_wasm` during the tauri frontend build.
+      - run: pnpm build:wasm
 
       # tauri-action builds the app, creates the Release on first matrix
       # entry, and uploads each platform's bundles as release assets.
@@ -210,60 +225,6 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
 
-  build-web:
-    needs: release
-    runs-on: ubuntu-latest
-    env:
-      BASE_PATH: /${{ github.event.repository.name }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.release.outputs.tag }}
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-
-      - name: Install Rust toolchain
-        run: |
-          rustup show active-toolchain
-          rustup target add wasm32-unknown-unknown
-
-      - name: Cache Cargo + wasm-pack
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin/wasm-pack
-            ~/.cache/.wasm-pack
-            target
-          key: ${{ runner.os }}-cargo-web-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
-          restore-keys: ${{ runner.os }}-cargo-web-
-
-      - name: Install wasm-pack
-        run: command -v wasm-pack || cargo install wasm-pack --locked
-
-      - run: pnpm install --frozen-lockfile
-
-      - run: pnpm build:web
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: build
-
-  deploy-pages:
-    needs: build-web
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+  # NOTE: GitHub Pages deploy lives in `pages.yml`, triggered by the tag
+  # push the `release` job creates. Keeping it here would tie the deploy
+  # to `refs/pull/N/merge`, which the `github-pages` environment rejects.
