@@ -108,7 +108,6 @@ export class AutoBurstCoalescer {
   /// Test-only: wait for all per-folder buckets to drain. The tests need a
   /// way to await completion without relying on real wall-clock timing.
   async drainForTest(): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     while (
       [...this.buckets.values()].some(
         (b) => b.inflight || b.paths.length > 0 || b.pending.length > 0
