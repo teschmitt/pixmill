@@ -1,9 +1,10 @@
-.PHONY: help check install clean lint fmt fmt-check type-check test dev build build-frontend
+.PHONY: help check install hooks clean lint fmt fmt-check type-check test dev build build-frontend
 
 help:
 	@echo "Usage: make <target>"
 	@echo ""
 	@echo "  install        pnpm install (auto-run by other targets when needed)"
+	@echo "  hooks          Enable repo-local git hooks (.githooks/) for this clone"
 	@echo "  check          Run all CI checks (fmt-check + lint + type-check + test)"
 	@echo "  lint           ESLint + Cargo clippy"
 	@echo "  fmt            Auto-format frontend (Prettier) and Rust (cargo fmt)"
@@ -22,6 +23,11 @@ node_modules: package.json pnpm-lock.yaml
 	@touch node_modules
 
 install: node_modules
+
+# core.hooksPath is per-clone (not tracked in the repo), so each clone runs this once.
+hooks:
+	git config core.hooksPath .githooks
+	@echo "Pre-commit hook enabled — 'make check' will gate every commit."
 
 check: fmt-check lint type-check test
 

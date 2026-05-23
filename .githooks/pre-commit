@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -e
+
+# Skip merge commits — the branches being merged were already checked on their own.
+if [ -e "$(git rev-parse --git-path MERGE_HEAD)" ]; then
+  exit 0
+fi
+
+cd "$(git rev-parse --show-toplevel)"
+
+if ! make check; then
+  echo
+  echo "pre-commit: 'make check' failed. Fix the errors above, then commit again."
+  echo "To bypass in an emergency: git commit --no-verify"
+  exit 1
+fi
