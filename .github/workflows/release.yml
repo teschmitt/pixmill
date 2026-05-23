@@ -119,6 +119,16 @@ jobs:
           BODY: ${{ steps.notes.outputs.body }}
         run: node scripts/update-changelog.mjs "$VERSION" "$BODY"
 
+      # The bump + changelog scripts emit files that don't match Prettier:
+      # JSON.stringify uses tab indent, GitHub's release-notes body uses `*`
+      # bullets. Letting Prettier normalize once here keeps the scripts dumb
+      # and prevents CI from rejecting the merge of `chore: release` later.
+      - name: Install JS deps for formatting
+        run: pnpm install --frozen-lockfile
+
+      - name: Normalize bumped files with Prettier
+        run: pnpm format
+
       - name: Commit + tag + push
         env:
           TAG: ${{ steps.bump.outputs.tag }}
